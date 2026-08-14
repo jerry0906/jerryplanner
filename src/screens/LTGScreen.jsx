@@ -16,7 +16,7 @@ export default function LTGScreen({ data }) {
 
   return (
     <>
-      <Header title="LTG" sub={`Long Term Goals · ${data.ltgs.length}개`} />
+      <Header title="LTG" sub={`Long-Term Goals · ${data.ltgs.length}개`} />
 
       {data.ltgs.length === 0 && !creating && (
         <p className="py-12 text-center text-[12.5px] text-slate-400">
