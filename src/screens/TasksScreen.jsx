@@ -90,10 +90,11 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
               <GripVertical className="h-4 w-4" />
             </button>
 
-            <span onClick={() => onEdit(t)}
-                  className={`shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[9.5px] font-bold ${TAGS[t.type_tag]?.chip}`}>
-              {TAGS[t.type_tag]?.label}
-            </span>
+            <div onClick={() => onEdit(t)} className="flex w-16 shrink-0 cursor-pointer justify-center">
+              <span className={`truncate rounded-full px-2 py-0.5 text-[9px] font-bold ${TAGS[t.type_tag]?.chip}`}>
+                {TAGS[t.type_tag]?.label}
+              </span>
+            </div>
 
             <div onClick={() => onEdit(t)} className="min-w-0 flex-1 cursor-pointer">
               <p className="truncate text-[13.5px] font-semibold text-slate-800">
