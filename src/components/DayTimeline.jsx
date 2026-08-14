@@ -105,22 +105,20 @@ export default function DayTimeline({
                    begin({ kind: "move", entryId: en.id, taskId: en.task_id,
                            grabOffset: e.clientY - top - minToY(start), escaped: false });
                  }}
-                 className={`absolute inset-x-0 cursor-grab touch-none overflow-hidden rounded-lg px-1.5 py-0.5 text-[10px] font-bold leading-tight text-white active:cursor-grabbing ${
+                 className={`absolute inset-x-0 cursor-grab touch-none overflow-hidden rounded-lg px-1.5 py-0.5 pr-6 text-[10px] font-bold leading-tight text-white active:cursor-grabbing ${
                    done ? "bg-emerald-600" : TAGS[task.type_tag]?.solid ?? "bg-slate-400"
                  } ${dragging && drag.escaped ? "opacity-40 ring-2 ring-rose-400" : ""}`}
                  style={{ top: minToY(start), height: Math.max(16, dur * PX_PER_MIN) }}>
-              <div className="flex items-start gap-1">
-                <button onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => onToggleDone(en.task_id)}
-                        aria-label="완료"
-                        className={`mt-px flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border-2 ${
-                          done ? "border-white bg-white" : "border-white/70"}`}>
-                  {done && <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={4} />}
-                </button>
-                <span className={`truncate ${done ? "line-through opacity-80" : ""}`}>{task.title}</span>
-              </div>
+              <button onPointerDown={(e) => e.stopPropagation()}
+                      onClick={() => onToggleDone(en.task_id)}
+                      aria-label="완료"
+                      className={`absolute right-1 top-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border-2 ${
+                        done ? "border-white bg-white" : "border-white/70"}`}>
+                {done && <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={4} />}
+              </button>
+              <span className={`block truncate ${done ? "line-through opacity-80" : ""}`}>{task.title}</span>
               {dur >= 40 && (
-                <div className="truncate pl-4 text-[8.5px] font-semibold opacity-85">
+                <div className="truncate text-[8.5px] font-semibold opacity-85">
                   {fmt(start)}–{fmt(start + dur)} · {durLabel(dur)}
                 </div>
               )}

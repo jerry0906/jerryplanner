@@ -37,10 +37,11 @@ function Shell({ userId, onSignOut }) {
   const wasAllDone = useRef(false);
   const wasOverloaded = useRef(false);
 
-  /* 그날 배정한 일을 전부 끝내면 한 번 축하 */
+  /* 그날 배정한 일을 전부 끝내면 한 번 축하 — Today 화면에서 날짜를 옮겨도 "진짜 오늘"만 대상 */
+  const isViewingToday = data.viewDate === data.today;
   const doneCount = data.entries.filter((e) => e.actual_duration != null).length;
   useEffect(() => {
-    const allDone = data.entries.length > 0 && doneCount === data.entries.length;
+    const allDone = isViewingToday && data.entries.length > 0 && doneCount === data.entries.length;
     if (allDone && !wasAllDone.current) {
       setCelebrate(true);
       const t = setTimeout(() => setCelebrate(false), 2600);
@@ -48,7 +49,7 @@ function Shell({ userId, onSignOut }) {
       return () => clearTimeout(t);
     }
     if (!allDone) wasAllDone.current = false;
-  }, [doneCount, data.entries.length]);
+  }, [doneCount, data.entries.length, isViewingToday]);
 
   /* 루틴 제외, 오늘 선정한 할 일이 기준치를 넘으면 한 번 물어본다 */
   const selectedCount = data.tasks.filter(

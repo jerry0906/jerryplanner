@@ -37,6 +37,8 @@ export default function TodayScreen({ data }) {
   const followBoxRef = useRef(null);
 
   const scheduledIds = new Set(entries.map((e) => e.task_id));
+  const doneCount = entries.filter((e) => e.actual_duration != null).length;
+  const total = entries.length;
 
   const todoItems = tasks.filter(
     (t) => t.is_selected && t.status === "todo" && t.repeat_rule === "none" && !scheduledIds.has(t.id),
@@ -122,6 +124,21 @@ export default function TodayScreen({ data }) {
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
+
+      <p className="mb-3 rounded-xl bg-blue-50 px-3 py-2.5 text-[11px] leading-relaxed text-blue-700">
+        오늘 할 일을 Drag해 수행할 시간을 배정하세요. 완료하면 체크해 완료처리하세요.
+        위임했거나 팔로업이 필요한 아이템은 팔로업 박스로 옮기세요.
+      </p>
+
+      {total > 0 && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="w-10 shrink-0 text-[11px] font-semibold text-slate-500">{doneCount} / {total}</span>
+          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full rounded-full bg-blue-500 transition-all"
+                 style={{ width: `${(doneCount / total) * 100}%` }} />
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-slate-300" /></div>
