@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, CalendarRange, Check, ListTodo, LogOut, Mic, Settings as SettingsIcon, Target } from "lucide-react";
+import { BarChart3, CalendarDays, ListTodo, Settings as SettingsIcon, Target } from "lucide-react";
 import { auth, useSession } from "./hooks/useAuth";
 import { useScheduler } from "./hooks/useScheduler";
 import { useSettings } from "./hooks/useSettings";
 import { Celebration, OverloadNudge, Spinner, TaskComposer } from "./components/ui";
 import AuthScreen from "./screens/AuthScreen";
-import TodayScreen from "./screens/TodayScreen";
-import AllocatorScreen from "./screens/AllocatorScreen";
 import TasksScreen from "./screens/TasksScreen";
+import TodayScreen from "./screens/TodayScreen";
 import LTGScreen from "./screens/LTGScreen";
 import StatsScreen from "./screens/StatsScreen";
 import SettingsSheet from "./screens/SettingsSheet";
 
+// 순서: Tasks → Today → LTG → Stats → Settings. 기본은 Tasks.
 const TABS = [
-  { key: "today", label: "Today", Icon: Check },
-  { key: "allocator", label: "Allocator", Icon: CalendarRange },
   { key: "tasks", label: "Tasks", Icon: ListTodo },
+  { key: "today", label: "Today", Icon: CalendarDays },
   { key: "ltg", label: "LTG", Icon: Target },
   { key: "stats", label: "Stats", Icon: BarChart3 },
+  { key: "settings", label: "Settings", Icon: SettingsIcon },
 ];
 
 export default function App() {
@@ -29,20 +29,18 @@ export default function App() {
 
 function Shell({ userId, onSignOut }) {
   const data = useScheduler(userId);
-  const settings = useSettings(userId); // 과부하 넛지 판단에 필요한 max_daily_tasks만 여기서도 참조
-  const [tab, setTab] = useState("today");
+  const settings = useSettings(userId);
+  const [tab, setTab] = useState("tasks");
   const [composing, setComposing] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [overload, setOverload] = useState(false);
   const wasAllDone = useRef(false);
   const wasOverloaded = useRef(false);
 
-  /* 오늘 계획을 전부 끝내는 순간 한 번만 축하 */
-  const active = data.entries.filter((e) => !e.is_skipped);
-  const doneCount = active.filter((e) => e.actual_duration != null).length;
+  /* 그날 배정한 일을 전부 끝내면 한 번 축하 */
+  const doneCount = data.entries.filter((e) => e.actual_duration != null).length;
   useEffect(() => {
-    const allDone = active.length > 0 && doneCount === active.length;
+    const allDone = data.entries.length > 0 && doneCount === data.entries.length;
     if (allDone && !wasAllDone.current) {
       setCelebrate(true);
       const t = setTimeout(() => setCelebrate(false), 2600);
@@ -50,42 +48,28 @@ function Shell({ userId, onSignOut }) {
       return () => clearTimeout(t);
     }
     if (!allDone) wasAllDone.current = false;
-  }, [doneCount, active.length]);
+  }, [doneCount, data.entries.length]);
 
-  /* 루틴 제외, 오늘 배정된 할 일이 기준치를 넘는 순간 한 번 물어본다 */
-  const nonRoutineCount = data.entries.filter((e) => {
-    const t = data.tasks.find((x) => x.id === e.task_id);
-    return t && t.repeat_rule === "none";
-  }).length;
+  /* 루틴 제외, 오늘 선정한 할 일이 기준치를 넘으면 한 번 물어본다 */
+  const selectedCount = data.tasks.filter(
+    (t) => t.is_selected && t.status === "todo" && t.repeat_rule === "none",
+  ).length;
   const limit = settings.profile?.max_daily_tasks ?? 6;
   useEffect(() => {
-    const isOver = nonRoutineCount > limit;
-    if (isOver && !wasOverloaded.current) {
-      setOverload(true);
-      wasOverloaded.current = true;
-    }
+    const isOver = selectedCount > limit;
+    if (isOver && !wasOverloaded.current) { setOverload(true); wasOverloaded.current = true; }
     if (!isOver) wasOverloaded.current = false;
-  }, [nonRoutineCount, limit]);
-
-  const Screen = {
-    today: TodayScreen,
-    allocator: AllocatorScreen,
-    tasks: TasksScreen,
-    ltg: LTGScreen,
-    stats: StatsScreen,
-  }[tab];
+  }, [selectedCount, limit]);
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50">
       <Celebration show={celebrate} />
 
       {overload && (
-        <OverloadNudge count={nonRoutineCount} limit={limit}
-                        onClose={() => setOverload(false)}
-                        onOpenSettings={() => { setOverload(false); setSettingsOpen(true); }} />
+        <OverloadNudge count={selectedCount} limit={limit}
+                       onClose={() => setOverload(false)}
+                       onOpenSettings={() => { setOverload(false); setTab("settings"); }} />
       )}
-
-      {settingsOpen && <SettingsSheet userId={userId} onClose={() => setSettingsOpen(false)} />}
 
       {data.error && (
         <div className="bg-rose-50 px-4 py-2 text-center text-[11.5px] font-semibold text-rose-600">
@@ -93,15 +77,19 @@ function Shell({ userId, onSignOut }) {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28 pt-3">
-        {data.loading ? <Spinner label="불러오는 중…" /> : <Screen data={data} userId={userId} />}
+      <main className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-3">
+        {data.loading && tab !== "settings" ? <Spinner label="불러오는 중…" /> : (
+          <>
+            {tab === "tasks" && <TasksScreen data={data} onCompose={() => setComposing(true)} />}
+            {tab === "today" && <TodayScreen data={data} />}
+            {tab === "ltg" && <LTGScreen data={data} />}
+            {tab === "stats" && <StatsScreen data={data} />}
+          </>
+        )}
       </main>
 
-      {(tab === "today" || tab === "tasks") && (
-        <button onClick={() => setComposing(true)} aria-label="새 태스크"
-                className="fixed bottom-24 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl shadow-blue-500/40">
-          <Mic className="h-5 w-5" />
-        </button>
+      {tab === "settings" && (
+        <SettingsSheet userId={userId} onSignOut={onSignOut} onClose={() => setTab("tasks")} />
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
@@ -113,14 +101,6 @@ function Shell({ userId, onSignOut }) {
             {label}
           </button>
         ))}
-        <button onClick={() => setSettingsOpen(true)} aria-label="설정"
-                className="flex flex-col items-center justify-center px-2.5 text-slate-300">
-          <SettingsIcon className="h-4 w-4" />
-        </button>
-        <button onClick={onSignOut} aria-label="로그아웃"
-                className="flex flex-col items-center justify-center px-2.5 text-slate-300">
-          <LogOut className="h-4 w-4" />
-        </button>
       </nav>
 
       {composing && (

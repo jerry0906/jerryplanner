@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Loader2, Repeat, X } from "lucide-react";
-import { CATEGORIES, DAY_LABELS, REPEAT_OPTIONS, TAGS, TAG_KEYS } from "../lib/core";
+import { DAY_LABELS, REPEAT_OPTIONS, TAGS, TAG_KEYS } from "../lib/core";
 import { ai } from "../lib/supabase";
 
 export const Header = ({ title, sub, right }) => (
@@ -100,7 +100,7 @@ export function Celebration({ show }) {
 export function TaskComposer({ onClose, onSave }) {
   const [title, setTitle] = useState("");
   const [tag, setTag] = useState("work");
-  const [category, setCategory] = useState("today");
+  const [selected, setSelected] = useState(true);
   const [repeat, setRepeat] = useState("none");
   const [days, setDays] = useState([]);
   const [start, setStart] = useState("09:00");
@@ -114,7 +114,6 @@ export function TaskComposer({ onClose, onSave }) {
     try {
       const r = await ai.classify(title.trim());
       if (r.type_tag) setTag(r.type_tag);
-      if (r.category) setCategory(r.category);
       setSuggested(true);
     } catch { /* 실패해도 수동 선택으로 계속 진행 */ }
     setClassifying(false);
@@ -141,16 +140,6 @@ export function TaskComposer({ onClose, onSave }) {
             <button key={k} onClick={() => setTag(k)}
                     className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${TAGS[k].chip} ${tag === k ? "ring-2 ring-slate-800" : "opacity-50"}`}>
               {TAGS[k].label}
-            </button>
-          ))}
-        </div>
-
-        <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Category</label>
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => (
-            <button key={c.key} onClick={() => setCategory(c.key)}
-                    className={`rounded-lg px-3 py-1.5 text-[11px] font-bold ${category === c.key ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500"}`}>
-              {c.label}
             </button>
           ))}
         </div>
@@ -186,9 +175,18 @@ export function TaskComposer({ onClose, onSave }) {
           </div>
         )}
 
+        <label className="mb-5 flex cursor-pointer items-center gap-2.5">
+          <span onClick={() => setSelected((v) => !v)}
+                className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
+                  selected ? "border-blue-500 bg-blue-500" : "border-slate-200"}`}>
+            {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+          </span>
+          <span className="text-[12.5px] font-semibold text-slate-600">오늘 할 일로 선정</span>
+        </label>
+
         <button disabled={!title.trim()}
                 onClick={() => onSave({
-                  title: title.trim(), type_tag: tag, category, repeat_rule: repeat,
+                  title: title.trim(), type_tag: tag, is_selected: selected, repeat_rule: repeat,
                   days_of_week: repeat === "custom_days" ? days : null,
                   fixed_start: repeat !== "none" ? toMin(start) : null,
                   fixed_end: repeat !== "none" ? toMin(end) : null,

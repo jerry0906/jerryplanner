@@ -29,8 +29,8 @@ export async function callFn(name, body) {
 
 export const ai = {
   /** 장기 목표 → 하위 과업 초안 (Sonnet) */
-  breakdown: (title, dueDate, existing = []) =>
-    callFn("ai", { action: "ltg_breakdown", payload: { title, due_date: dueDate, existing } }),
+  breakdown: (title, dueDate, existing = [], outcome = "") =>
+    callFn("ai", { action: "ltg_breakdown", payload: { title, due_date: dueDate, existing, outcome } }),
 
   /** 캡처된 할 일 → type_tag / category 자동 분류 (Haiku) */
   classify: (title) => callFn("ai", { action: "classify_task", payload: { title } }),

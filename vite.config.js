@@ -17,8 +17,8 @@ export default defineConfig({
       },
       includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
-        name: "AI Scheduler",
-        short_name: "Scheduler",
+        name: "Jerry Planner",
+        short_name: "JerryPlanner",
         description: "계획하고, 실행하고, 되돌아보는 스케줄러",
         theme_color: "#3B82F6",
         background_color: "#F8FAFC",

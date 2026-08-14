@@ -47,12 +47,6 @@ export const TAGS = {
 };
 export const TAG_KEYS = Object.keys(TAGS);
 
-export const CATEGORIES = [
-  { key: "today", label: "Today" },
-  { key: "followup_delegated", label: "Follow-up · Delegated" },
-  { key: "later", label: "Later" },
-];
-
 export const REPEAT_OPTIONS = [
   { key: "none", label: "None" },
   { key: "daily", label: "Daily" },

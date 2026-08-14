@@ -58,6 +58,9 @@ create index on ltgs (user_id, due_date);
 
 -- ── tasks ─────────────────────────────────────────────────
 --  루틴은 별도 테이블이 아니라 repeat_rule <> 'none' 인 task.
+--  소요시간은 tasks가 아니라 schedule_entries.duration_minutes에만 있다.
+--  (같은 태스크라도 날짜마다 배정 시간이 다를 수 있고, tasks 쪽에 중복으로
+--   들고 있으면 Allocator에서 리사이즈해도 안 따라가는 두 번째 소스가 생긴다)
 create table tasks (
   id                uuid primary key default gen_random_uuid(),
   user_id           uuid not null references auth.users on delete cascade,
@@ -65,7 +68,6 @@ create table tasks (
   category          task_category not null default 'today',
   type_tag          type_tag not null default 'work',   -- AI 자동 지정 + 수동 수정
   ltg_id            uuid references ltgs on delete cascade,
-  duration_minutes  int,                                -- Allocator 배정 시 기본 60
   repeat_rule       repeat_rule not null default 'none',
   days_of_week      smallint[],                         -- repeat_rule = 'custom_days'
   fixed_start_time  time,                               -- repeat_rule <> 'none'
@@ -219,6 +221,7 @@ group by e.user_id, week_of, t.type_tag;
 -- alter table profiles add column if not exists evening_plan_time time not null default '21:00';
 -- alter table profiles add column if not exists morning_brief_time time not null default '08:00';
 -- alter table tasks add column if not exists system_kind text check (system_kind in ('evening_plan','morning_brief'));
+-- alter table tasks drop column if exists duration_minutes;  -- 아무도 안 읽는 죽은 값이었음. schedule_entries.duration_minutes가 유일한 소스.
 -- create unique index if not exists tasks_one_system_kind_per_user on tasks (user_id, system_kind) where system_kind is not null;
 -- alter table schedule_entries add column if not exists outlook_event_id text;
 -- (push_subscriptions, notification_log 테이블은 위 CREATE TABLE 문을 그대로 한 번 더 실행하면 됩니다)

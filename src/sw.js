@@ -11,7 +11,7 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
  * 앱이 꺼져 있어도(백그라운드/탭 종료) 이 이벤트는 브라우저가 깨워서 실행해 준다.
  */
 self.addEventListener("push", (event) => {
-  let data = { title: "AI Scheduler", body: "" };
+  let data = { title: "Jerry Planner", body: "" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

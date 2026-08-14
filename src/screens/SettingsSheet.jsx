@@ -1,27 +1,48 @@
 import { useState } from "react";
 import {
-  Bell, BellOff, ChevronLeft, Link2, Loader2, Minus, Plus, Unlink,
+  Bell, BellOff, ChevronLeft, Link2, Loader2, LogOut, Minus, Plus, Unlink,
 } from "lucide-react";
 import { SectionTitle } from "../components/ui";
 import { TAG_KEYS, TAGS } from "../lib/core";
 import { useSettings } from "../hooks/useSettings";
 import { push } from "../lib/supabase";
 
-export default function SettingsSheet({ userId, onClose }) {
+export default function SettingsSheet({ userId, onClose, onSignOut }) {
   const s = useSettings(userId);
   const [busy, setBusy] = useState(null); // 어떤 액션이 진행 중인지
   const [msg, setMsg] = useState(null);
 
   const run = async (key, fn) => {
     setBusy(key); setMsg(null);
-    try { await fn(); } catch (e) { setMsg(String(e.message ?? e)); }
+    try {
+      await fn();
+    } catch (e) {
+      const m = String(e.message ?? e);
+      setMsg(m.includes("Failed to fetch")
+        ? "서버 기능이 아직 배포되지 않았어요. (supabase functions deploy)"
+        : m);
+    }
     setBusy(null);
   };
 
-  if (s.loading || !s.profile) {
+  if (s.loading) {
     return (
       <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40">
         <Loader2 className="h-6 w-6 animate-spin text-white" />
+      </div>
+    );
+  }
+
+  if (!s.profile) {
+    return (
+      <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/50 px-6">
+        <div className="w-full max-w-xs rounded-2xl bg-white p-5 text-center">
+          <p className="text-[13px] font-bold text-slate-800">설정을 불러오지 못했어요</p>
+          <p className="mt-1 text-[11.5px] text-slate-500">{s.error ?? "프로필 정보가 없습니다."}</p>
+          <button onClick={onClose} className="mt-4 w-full rounded-xl bg-slate-100 py-2.5 text-[12px] font-bold text-slate-600">
+            닫기
+          </button>
+        </div>
       </div>
     );
   }
@@ -136,6 +157,12 @@ export default function SettingsSheet({ userId, onClose }) {
           </div>
 
           {msg && <p className="mt-3 text-center text-[11.5px] font-semibold text-rose-500">{msg}</p>}
+
+          <SectionTitle>계정</SectionTitle>
+          <button onClick={onSignOut}
+                  className="mb-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-[12.5px] font-bold text-rose-500 shadow-sm">
+            <LogOut className="h-4 w-4" /> 로그아웃
+          </button>
         </div>
       </div>
     </div>

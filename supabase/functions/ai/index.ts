@@ -1,13 +1,11 @@
-// ============================================================
-//  supabase/functions/ai/index.ts
+// supabase/functions/ai/index.ts
 //
-//  Claude API 프록시. API 키는 이 서버에만 존재하며
-//  Android 앱에는 절대 포함되지 않는다.
+// Claude API 프록시. API 키는 이 서버에만 존재하며
+// 앱 번들에는 절대 포함되지 않는다.
 //
-//  배포:
-//    supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-//    supabase functions deploy ai
-// ============================================================
+// 배포:
+//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+//   supabase functions deploy ai
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -25,12 +23,11 @@ const json = (body: unknown, status = 200) =>
     headers: { ...cors, "Content-Type": "application/json" },
   });
 
-/* ── Claude 호출 (Structured Outputs로 스키마 강제) ────────── */
-async function callClaude(
-  model: string,
-  prompt: string,
-  schema: Record<string, unknown>,
-) {
+/**
+ * Claude를 호출하고 JSON만 뽑아낸다.
+ * 모델이 앞뒤로 설명이나 코드펜스를 붙이는 경우가 있어 가장 바깥 JSON만 잘라낸다.
+ */
+async function askForJSON(model: string, prompt: string) {
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -42,7 +39,6 @@ async function callClaude(
       model,
       max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
-      output_config: { format: { type: "json_schema", schema } },
     }),
   });
 
@@ -52,43 +48,19 @@ async function callClaude(
   const text = data.content
     .filter((c: { type: string }) => c.type === "text")
     .map((c: { text: string }) => c.text)
-    .join("");
-  return JSON.parse(text);
+    .join("")
+    .trim();
+
+  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error(`JSON을 찾지 못했습니다: ${cleaned.slice(0, 200)}`);
+  return JSON.parse(cleaned.slice(start, end + 1));
 }
 
-/* ── 스키마 정의 ──────────────────────────────────────────── */
-const BREAKDOWN_SCHEMA = {
-  type: "object",
-  properties: {
-    subtasks: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          estimated_minutes: { type: "integer" },
-        },
-        required: ["title", "estimated_minutes"],
-      },
-    },
-  },
-  required: ["subtasks"],
-};
-
-const TAG_SCHEMA = {
-  type: "object",
-  properties: {
-    type_tag: { type: "string", enum: ["personal", "work", "social", "admin", "ltg"] },
-    category: { type: "string", enum: ["today", "followup_delegated", "later"] },
-  },
-  required: ["type_tag", "category"],
-};
-
-/* ── 핸들러 ───────────────────────────────────────────────── */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
-  // 인증 확인 — 로그인한 사용자만 호출 가능
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "unauthorized" }, 401);
 
@@ -103,32 +75,34 @@ Deno.serve(async (req) => {
   try {
     const { action, payload } = await req.json();
 
-    // ── ① LTG Breakdown ───────────────────────────────────
-    //  품질이 중요하므로 Sonnet 사용
+    // ── ① LTG Breakdown (품질이 중요하므로 Sonnet) ─────────
     if (action === "ltg_breakdown") {
-      const { title, due_date, existing = [] } = payload;
+      const { title, due_date, outcome = "", existing = [] } = payload;
 
       const prompt = `장기 목표를 실행 가능한 하위 과업으로 분해해줘.
 
 목표: "${title}"
-기한: ${due_date}
+달성 목표일: ${due_date}
+${outcome ? `달성하고자 하는 최종 상태:\n${outcome}` : ""}
 ${existing.length ? `이미 등록된 과업 (중복 피할 것): ${existing.join(", ")}` : ""}
 
 조건:
+- 위에 적힌 "최종 상태"에 실제로 도달하는 데 필요한 일들로 구성할 것
 - 각 과업은 한 번에 1~2시간 안에 끝낼 수 있는 구체적 단위
 - 모호한 표현 대신 첫 행동이 무엇인지 분명하게
-- 기한까지 남은 기간을 고려해 6~8개 제안`;
+- 목표일까지 남은 기간을 고려해 6~8개 제안
 
-      const result = await callClaude("claude-sonnet-4-6", prompt, BREAKDOWN_SCHEMA);
-      return json(result);
+반드시 아래 JSON 형식으로만 답해. 다른 설명이나 마크다운 없이 JSON만:
+{"subtasks":[{"title":"과업 제목","estimated_minutes":90}]}`;
+
+      return json(await askForJSON("claude-sonnet-4-6", prompt));
     }
 
-    // ── ② 캡처된 태스크 자동 분류 ─────────────────────────
-    //  단순 분류이므로 저렴한 Haiku 사용
+    // ── ② 캡처된 태스크 자동 분류 (저렴한 Haiku) ───────────
     if (action === "classify_task") {
       const { title } = payload;
 
-      const prompt = `할 일을 분류해줘.
+      const prompt = `할 일의 유형을 분류해줘.
 
 할 일: "${title}"
 
@@ -139,13 +113,10 @@ type_tag 기준:
 - admin: 행정, 서류, 결제, 예약 등 처리성 업무
 - ltg: 장기 목표와 직접 연결된 일
 
-category 기준:
-- today: 곧 직접 처리할 일
-- followup_delegated: 남에게 맡겼거나 회신을 기다리는 일
-- later: 급하지 않아 미뤄둘 일`;
+반드시 아래 JSON 형식으로만 답해. 다른 설명 없이 JSON만:
+{"type_tag":"work"}`;
 
-      const result = await callClaude("claude-haiku-4-5-20251001", prompt, TAG_SCHEMA);
-      return json(result);
+      return json(await askForJSON("claude-haiku-4-5-20251001", prompt));
     }
 
     return json({ error: `unknown action: ${action}` }, 400);

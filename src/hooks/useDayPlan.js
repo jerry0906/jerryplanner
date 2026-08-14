@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { DEFAULT_DUR, minToTime, repeatsOn, timeToMin } from "../lib/core";
+import { DEFAULT_DUR } from "../lib/core";
 
 /**
- * 특정 날짜 하나의 schedule_entries만 다루는 훅.
- * Today/Stats는 항상 "오늘"만 보면 되지만, Allocator는 저녁에 "내일"을 계획해야 하므로
- * 날짜를 바꿔 끼울 수 있게 useScheduler에서 분리해 두었다.
+ * 특정 날짜 하나의 schedule_entries를 다룬다.
+ *
+ * 루틴(repeat_rule <> 'none')은 여기서 미리 행을 만들지 않는다.
+ * 타임라인에 흐리게 항상 표시되는 "고정 배경"이고, 사용자가 완료 체크를 할 때
+ * 비로소 실제 entry가 만들어진다. (안 쓰는 날의 빈 행이 쌓이지 않도록)
  */
 export function useDayPlan(userId, date, tasks) {
   const [entries, setEntries] = useState([]);
@@ -13,12 +15,12 @@ export function useDayPlan(userId, date, tasks) {
   const saveTimers = useRef({});
 
   const load = useCallback(async () => {
-    if (!userId || !date || tasks == null) return;
+    if (!userId || !date) return;
     setLoading(true);
     const { data } = await supabase.from("schedule_entries").select("*").eq("date", date);
-    setEntries(await ensureRoutineEntries(tasks, data ?? [], date, userId));
+    setEntries(data ?? []);
     setLoading(false);
-  }, [userId, date, tasks]);
+  }, [userId, date]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -29,22 +31,26 @@ export function useDayPlan(userId, date, tasks) {
     }, 400);
   };
 
-  const assign = async (taskId, startMinute) => {
+  const assign = async (taskId, startMinute, durationMinutes = DEFAULT_DUR) => {
     if (entries.some((e) => e.task_id === taskId)) return;
     const optimistic = {
       id: `tmp-${taskId}`, user_id: userId, task_id: taskId, date,
-      start_minute: startMinute, duration_minutes: DEFAULT_DUR,
+      start_minute: startMinute, duration_minutes: durationMinutes,
       actual_start: null, actual_duration: null, is_skipped: false, outlook_event_id: null,
     };
     setEntries((p) => [...p, optimistic]);
 
     const { data, error } = await supabase.from("schedule_entries").insert({
-      user_id: userId, task_id: taskId, date, start_minute: startMinute, duration_minutes: DEFAULT_DUR,
+      user_id: userId, task_id: taskId, date,
+      start_minute: startMinute, duration_minutes: durationMinutes,
     }).select().single();
 
-    if (error) return setEntries((p) => p.filter((e) => e.id !== optimistic.id));
+    if (error) {
+      setEntries((p) => p.filter((e) => e.id !== optimistic.id));
+      return;
+    }
     setEntries((p) => p.map((e) => (e.id === optimistic.id ? data : e)));
-    await supabase.from("tasks").update({ duration_minutes: DEFAULT_DUR }).eq("id", taskId);
+    return data;
   };
 
   const updateEntry = (id, patch) => {
@@ -58,22 +64,4 @@ export function useDayPlan(userId, date, tasks) {
   };
 
   return { entries, loading, assign, updateEntry, unassign, reload: load };
-}
-
-async function ensureRoutineEntries(tasks, existing, date, userId) {
-  const have = new Set(existing.map((e) => e.task_id));
-  const missing = tasks.filter(
-    (t) => t.repeat_rule !== "none" && repeatsOn(t, date) && !have.has(t.id) && t.fixed_start_time,
-  );
-  if (missing.length === 0) return existing;
-
-  const rows = missing.map((t) => {
-    const s = timeToMin(t.fixed_start_time);
-    const e = timeToMin(t.fixed_end_time) ?? s + DEFAULT_DUR;
-    return { user_id: userId, task_id: t.id, date, start_minute: s, duration_minutes: Math.max(15, e - s) };
-  });
-
-  const { data, error } = await supabase.from("schedule_entries").insert(rows).select();
-  if (error) return existing;
-  return [...existing, ...data];
 }

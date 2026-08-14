@@ -34,7 +34,7 @@ export default function LTGScreen({ data }) {
                     subs.length ? "bg-white" : "border-2 border-dashed border-slate-200 bg-white/60"}`}>
             <p className="text-[15px] font-bold text-slate-800">{g.title}</p>
             <p className="mb-2 mt-1 text-[11.5px] text-slate-400">
-              Due {g.due_date} · {subs.length ? `하위 과업 ${done}/${subs.length}` : "하위 과업 없음 · 탭하면 AI Breakdown"}
+              달성 목표일 {g.due_date} · {subs.length ? `하위 과업 ${done}/${subs.length}` : "하위 과업 없음 · 탭하면 AI Breakdown"}
             </p>
             {subs.length > 0 && (
               <div className="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -47,8 +47,8 @@ export default function LTGScreen({ data }) {
 
       {creating ? (
         <NewLTGForm onCancel={() => setCreating(false)}
-                    onCreate={async (title, due) => {
-                      const g = await data.addLTG(title, due);
+                    onCreate={async (title, due, outcome) => {
+                      const g = await data.addLTG(title, due, outcome);
                       setCreating(false);
                       if (g) setOpen(g.id);
                     }} />
@@ -64,17 +64,30 @@ export default function LTGScreen({ data }) {
 
 function NewLTGForm({ onCreate, onCancel }) {
   const [title, setTitle] = useState("");
+  const [outcome, setOutcome] = useState("");
   const [due, setDue] = useState("");
+  const labelCls = "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400";
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm">
       <SectionTitle>새 장기 목표</SectionTitle>
+
+      <label className={labelCls}>목표</label>
       <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 자격증 취득"
              className="mb-3 w-full rounded-xl bg-slate-100 px-4 py-3 text-[14px] font-semibold outline-none focus:ring-2 focus:ring-blue-500" />
+
+      <label className={labelCls}>달성하고자 하는 최종 상태</label>
+      <textarea value={outcome} onChange={(e) => setOutcome(e.target.value)} rows={3}
+                placeholder="예: 필기·실기 모두 합격해 자격증을 손에 쥔 상태. 주 3회 이상 공부 습관이 자리잡음."
+                className="mb-1 w-full resize-none rounded-xl bg-slate-100 px-4 py-3 text-[13px] font-medium leading-relaxed outline-none focus:ring-2 focus:ring-blue-500" />
+      <p className="mb-3 text-[10.5px] text-slate-400">AI가 이 설명을 참고해 하위 과업을 쪼갭니다.</p>
+
+      <label className={labelCls}>달성 목표일</label>
       <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
              className="mb-3 w-full rounded-xl bg-slate-100 px-4 py-3 text-[13px] font-semibold outline-none focus:ring-2 focus:ring-blue-500" />
+
       <div className="flex gap-2">
         <button onClick={onCancel} className="flex-1 rounded-xl bg-slate-100 py-3 text-[12.5px] font-bold text-slate-500">취소</button>
-        <button disabled={!title.trim() || !due} onClick={() => onCreate(title.trim(), due)}
+        <button disabled={!title.trim() || !due} onClick={() => onCreate(title.trim(), due, outcome.trim())}
                 className="flex-1 rounded-xl bg-blue-500 py-3 text-[12.5px] font-bold text-white disabled:opacity-40">
           만들기
         </button>
@@ -92,10 +105,12 @@ function LTGDetail({ ltg, data, onBack }) {
   const run = async () => {
     setLoading(true); setErr(null);
     try {
-      const r = await ai.breakdown(ltg.title, ltg.due_date, subs.map((s) => s.title));
+      const r = await ai.breakdown(ltg.title, ltg.due_date, subs.map((s) => s.title), ltg.outcome);
       setDraft(r.subtasks.map((s, i) => ({ ...s, key: i, keep: true })));
-    } catch {
-      setErr("제안을 불러오지 못했어요.");
+    } catch (e) {
+      setErr(String(e.message ?? e).includes("Failed to fetch")
+        ? "AI 기능이 아직 서버에 배포되지 않았어요. (supabase functions deploy ai)"
+        : `제안을 불러오지 못했어요: ${e.message ?? e}`);
     }
     setLoading(false);
   };
@@ -115,7 +130,7 @@ function LTGDetail({ ltg, data, onBack }) {
       <button onClick={onBack} className="mb-1 mt-1 flex items-center gap-1 text-[11.5px] font-semibold text-slate-400">
         <ChevronLeft className="h-3.5 w-3.5" /> LTG
       </button>
-      <Header title={ltg.title} sub={`Due ${ltg.due_date}`}
+      <Header title={ltg.title} sub={`달성 목표일 ${ltg.due_date}`}
               right={
                 <button onClick={() => { data.deleteLTG(ltg.id); onBack(); }}
                         className="rounded-lg bg-slate-100 p-2 text-slate-400" aria-label="목표 삭제">
