@@ -97,19 +97,20 @@ export function Celebration({ show }) {
 }
 
 /* 태스크 캡처 시트 — 제목 입력 후 AI가 태그/분류 제안 */
-export function TaskComposer({ onClose, onSave }) {
-  const [title, setTitle] = useState("");
-  const [tag, setTag] = useState("work");
-  const [selected, setSelected] = useState(true);
-  const [repeat, setRepeat] = useState("none");
-  const [days, setDays] = useState([]);
-  const [start, setStart] = useState("09:00");
-  const [end, setEnd] = useState("10:00");
+export function TaskComposer({ task, onClose, onSave, onDelete }) {
+  const isEdit = !!task;
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [tag, setTag] = useState(task?.type_tag ?? "work");
+  const [selected, setSelected] = useState(task ? !!task.is_selected : true);
+  const [repeat, setRepeat] = useState(task?.repeat_rule ?? "none");
+  const [days, setDays] = useState(task?.days_of_week ?? []);
+  const [start, setStart] = useState(task?.fixed_start_time?.slice(0, 5) ?? "09:00");
+  const [end, setEnd] = useState(task?.fixed_end_time?.slice(0, 5) ?? "10:00");
   const [classifying, setClassifying] = useState(false);
   const [suggested, setSuggested] = useState(false);
 
   const classify = async () => {
-    if (!title.trim() || suggested) return;
+    if (!title.trim() || suggested || isEdit) return;
     setClassifying(true);
     try {
       const r = await ai.classify(title.trim());
@@ -124,7 +125,7 @@ export function TaskComposer({ onClose, onSave }) {
   return (
     <div className="fixed inset-0 z-30 flex items-end bg-slate-900/40" onClick={onClose}>
       <div className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-4 text-[17px] font-extrabold text-slate-800">새 태스크</h2>
+        <h2 className="mb-4 text-[17px] font-extrabold text-slate-800">{isEdit ? "태스크 수정" : "새 태스크"}</h2>
 
         <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Title</label>
         <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onBlur={classify}
@@ -175,14 +176,16 @@ export function TaskComposer({ onClose, onSave }) {
           </div>
         )}
 
-        <label className="mb-5 flex cursor-pointer items-center gap-2.5">
-          <span onClick={() => setSelected((v) => !v)}
-                className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
-                  selected ? "border-blue-500 bg-blue-500" : "border-slate-200"}`}>
-            {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-          </span>
-          <span className="text-[12.5px] font-semibold text-slate-600">오늘 할 일로 선정</span>
-        </label>
+        {!isEdit && (
+          <label className="mb-5 flex cursor-pointer items-center gap-2.5">
+            <span onClick={() => setSelected((v) => !v)}
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
+                    selected ? "border-blue-500 bg-blue-500" : "border-slate-200"}`}>
+              {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+            </span>
+            <span className="text-[12.5px] font-semibold text-slate-600">오늘 할 일로 선정</span>
+          </label>
+        )}
 
         <button disabled={!title.trim()}
                 onClick={() => onSave({
@@ -192,8 +195,15 @@ export function TaskComposer({ onClose, onSave }) {
                   fixed_end: repeat !== "none" ? toMin(end) : null,
                 })}
                 className="w-full rounded-xl bg-blue-500 py-3.5 text-[13px] font-bold text-white disabled:opacity-40">
-          Save Task
+          {isEdit ? "저장" : "Save Task"}
         </button>
+
+        {isEdit && (
+          <button onClick={() => onDelete(task.id)}
+                  className="mt-2 w-full rounded-xl bg-rose-50 py-3 text-[12.5px] font-bold text-rose-500">
+            삭제
+          </button>
+        )}
       </div>
     </div>
   );

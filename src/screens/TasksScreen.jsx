@@ -9,7 +9,7 @@ import { TAGS } from "../lib/core";
  *  - 오른쪽 체크박스 = 오늘 할 일로 선정 (Today 화면 왼쪽 바에 나타남)
  *  - 완료 버튼은 없다. 완료 처리는 Today 타임라인에서만 한다.
  */
-export default function TasksScreen({ data, onCompose }) {
+export default function TasksScreen({ data, onCompose, onEdit }) {
   const { tasks, ltgs, toggleSelected, reorderTasks, deleteTask } = data;
 
   const visible = tasks
@@ -90,11 +90,12 @@ export default function TasksScreen({ data, onCompose }) {
               <GripVertical className="h-4 w-4" />
             </button>
 
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-bold ${TAGS[t.type_tag]?.chip}`}>
+            <span onClick={() => onEdit(t)}
+                  className={`shrink-0 cursor-pointer rounded-full px-2 py-0.5 text-[9.5px] font-bold ${TAGS[t.type_tag]?.chip}`}>
               {TAGS[t.type_tag]?.label}
             </span>
 
-            <div className="min-w-0 flex-1">
+            <div onClick={() => onEdit(t)} className="min-w-0 flex-1 cursor-pointer">
               <p className="truncate text-[13.5px] font-semibold text-slate-800">
                 {ltg && <span className="font-medium text-slate-400">{ltg.title} <span className="text-slate-300">›</span> </span>}
                 {t.title}

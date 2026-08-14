@@ -85,6 +85,19 @@ export function useScheduler(userId) {
       .then(({ error }) => error && setError(error.message));
   };
 
+  /** TaskComposer(수정 모드)에서 넘어온 초안을 그대로 저장 */
+  const updateTaskFromDraft = (taskId, draft) => {
+    patchTask(taskId, {
+      title: draft.title,
+      type_tag: draft.type_tag,
+      is_selected: draft.is_selected,
+      repeat_rule: draft.repeat_rule,
+      days_of_week: draft.days_of_week,
+      fixed_start_time: minToTime(draft.fixed_start ?? null),
+      fixed_end_time: minToTime(draft.fixed_end ?? null),
+    });
+  };
+
   /** Tasks 화면의 Today 체크 — 오늘 할 일로 선정/해제 */
   const toggleSelected = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
@@ -162,7 +175,7 @@ export function useScheduler(userId) {
     loading: loading || day.loading,
     error,
     reload: () => { loadBase(); day.reload(); },
-    addTask, addTasks, patchTask, toggleSelected, reorderTasks, deleteTask,
+    addTask, addTasks, patchTask, updateTaskFromDraft, toggleSelected, reorderTasks, deleteTask,
     assign: day.assign, updateEntry: day.updateEntry, unassign: day.unassign,
     toggleDone, moveToFollowup, backToTodo,
     addLTG, updateLTG, deleteLTG,
