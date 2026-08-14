@@ -50,11 +50,28 @@ export default function TodayScreen({ data }) {
     return { id: t.id, title: t.title, start: s, duration: Math.max(15, e - s) };
   });
 
-  /* 왼쪽 바에서 타임라인으로 끌어놓기 */
+  const inBox = (ref, x, y) => {
+    const el = ref.current;
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    return x >= r.left - 12 && x <= r.right + 12 && y >= r.top - 12 && y <= r.bottom + 12;
+  };
+
+  /* 왼쪽 바에서 타임라인 또는 Follow-up 박스로 끌어놓기 */
   useEffect(() => {
     if (!drag) return;
-    const move = (e) => setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+    const move = (e) => {
+      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
+      setHoverBox(inBox(followBoxRef, e.clientX, e.clientY) ? "follow" : null);
+    };
     const up = (e) => {
+      // To-do 아이템을 타임라인 거치지 않고 바로 Follow-up으로
+      if (inBox(followBoxRef, e.clientX, e.clientY)) {
+        moveToFollowup(drag.taskId);
+        setDrag(null);
+        setHoverBox(null);
+        return;
+      }
       const track = timelineApi.current?.getTrack?.();
       if (track) {
         const r = track.getBoundingClientRect();
@@ -63,6 +80,7 @@ export default function TodayScreen({ data }) {
         }
       }
       setDrag(null);
+      setHoverBox(null);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -70,20 +88,14 @@ export default function TodayScreen({ data }) {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-  }, [drag, assign]);
+  }, [drag, assign, moveToFollowup]);
 
   /* 타임라인 블록을 왼쪽으로 끌어냈을 때: 어느 박스에 놓았는지로 처리 분기 */
   const handleBlockDragOut = (entryId, x, y) => {
-    const inBox = (ref) => {
-      const el = ref.current;
-      if (!el) return false;
-      const r = el.getBoundingClientRect();
-      return x >= r.left - 12 && x <= r.right + 12 && y >= r.top - 12 && y <= r.bottom + 12;
-    };
     const entry = entries.find((e) => e.id === entryId);
     if (!entry) return;
 
-    if (inBox(followBoxRef)) moveToFollowup(entry.task_id);
+    if (inBox(followBoxRef, x, y)) moveToFollowup(entry.task_id);
     else unassign(entryId);   // To-do 박스든 그 밖이든, 배정만 해제하면 To-do로 돌아간다
     setHoverBox(null);
   };
@@ -125,8 +137,9 @@ export default function TodayScreen({ data }) {
               ))}
             </Box>
 
-            <Box label="Follow-up" innerRef={followBoxRef} tone="violet" count={followItems.length}>
-              {followItems.length === 0 && <Empty text="타임라인에서 여기로 끌어놓으면 팔로우업" />}
+            <Box label="Follow-up" innerRef={followBoxRef} tone="violet" count={followItems.length}
+                 active={hoverBox === "follow"}>
+              {followItems.length === 0 && <Empty text="To-do나 타임라인에서 여기로 끌어놓으면 팔로우업" />}
               {followItems.map((t) => (
                 <Chip key={t.id} task={t} onClick={() => backToTodo(t.id)} />
               ))}
@@ -170,9 +183,11 @@ const TONES = {
   slate: "border-slate-200 bg-slate-50/50",
 };
 
-function Box({ label, count, tone, innerRef, children }) {
+function Box({ label, count, tone, innerRef, active, children }) {
   return (
-    <div ref={innerRef} className={`rounded-xl border p-2 ${TONES[tone]}`}>
+    <div ref={innerRef}
+         className={`rounded-xl border p-2 transition-shadow ${TONES[tone]} ${
+           active ? "ring-2 ring-violet-400 ring-offset-1" : ""}`}>
       <p className="mb-1.5 flex items-center justify-between text-[9.5px] font-bold uppercase tracking-wide text-slate-500">
         {label}<span className="text-slate-300">{count}</span>
       </p>
