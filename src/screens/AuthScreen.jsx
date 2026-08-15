@@ -30,10 +30,9 @@ export default function AuthScreen() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500">
             <CalendarRange className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-[22px] font-extrabold tracking-tight text-slate-800">
-            {mode === "login" ? "다시 오셨네요" : "계정 만들기"}
-          </h1>
-          <p className="mt-1 text-[12.5px] text-slate-400">
+          <h1 className="text-[22px] font-extrabold tracking-tight text-slate-800">Jerry Planner</h1>
+          <p className="mt-1 text-[13px] font-semibold text-slate-500">환영합니다</p>
+          <p className="mt-2 text-[12px] text-slate-400">
             {mode === "login" ? "계정으로 로그인하세요" : "가족 구성원도 각자 계정으로 쓸 수 있어요"}
           </p>
         </div>
