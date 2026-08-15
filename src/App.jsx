@@ -44,11 +44,16 @@ function Shell({ userId, onSignOut }) {
     const allDone = isViewingToday && data.entries.length > 0 && doneCount === data.entries.length;
     if (allDone && !wasAllDone.current) {
       setCelebrate(true);
-      const t = setTimeout(() => setCelebrate(false), 2600);
       wasAllDone.current = true;
+      const t = setTimeout(() => setCelebrate(false), 2600);
       return () => clearTimeout(t);
     }
-    if (!allDone) wasAllDone.current = false;
+    if (!allDone) {
+      // 축하가 떠 있는 도중에 새 항목이 배정되는 등 완료 조건이 깨지면
+      // 타이머만 취소하고 끝내지 말고, 팝업도 바로 닫는다.
+      wasAllDone.current = false;
+      setCelebrate(false);
+    }
   }, [doneCount, data.entries.length, isViewingToday]);
 
   /* 루틴 제외, 오늘 선정한 할 일이 기준치를 넘으면 한 번 물어본다 */

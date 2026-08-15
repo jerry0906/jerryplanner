@@ -101,7 +101,7 @@ export function TaskComposer({ task, onClose, onSave, onDelete }) {
   const isEdit = !!task;
   const [title, setTitle] = useState(task?.title ?? "");
   const [tag, setTag] = useState(task?.type_tag ?? "work");
-  const [selected, setSelected] = useState(task ? !!task.is_selected : true);
+  const [selected, setSelected] = useState(task ? !!task.is_selected : false);
   const [repeat, setRepeat] = useState(task?.repeat_rule ?? "none");
   const [days, setDays] = useState(task?.days_of_week ?? []);
   const [start, setStart] = useState(task?.fixed_start_time?.slice(0, 5) ?? "09:00");

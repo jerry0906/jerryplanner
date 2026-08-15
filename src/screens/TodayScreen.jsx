@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Repeat } from "lucide-react";
 import DayTimeline from "../components/DayTimeline";
 import { DEFAULT_DUR, TAGS, timeToMin, todayISO, yToMin } from "../lib/core";
+import { holdThenDrag } from "../lib/holdThenDrag";
 
 const shiftDate = (iso, days) => {
   const d = new Date(iso + "T00:00:00");
@@ -106,8 +107,10 @@ export default function TodayScreen({ data }) {
 
   return (
     <>
+      <h1 className="pt-1 text-[20px] font-extrabold tracking-tight text-slate-800">Today</h1>
+
       {/* 날짜 이동 */}
-      <div className="mb-3 flex items-center justify-between pt-1">
+      <div className="mb-3 mt-1 flex items-center justify-between">
         <button onClick={() => setViewDate(shiftDate(viewDate, -1))}
                 aria-label="전날" className="rounded-lg p-2 text-slate-400">
           <ChevronLeft className="h-5 w-5" />
@@ -150,7 +153,10 @@ export default function TodayScreen({ data }) {
               {todoItems.length === 0 && <Empty text="Tasks에서 오늘 할 일을 골라보세요" />}
               {todoItems.map((t) => (
                 <Chip key={t.id} task={t} draggable
-                      onGrab={(e) => { e.preventDefault(); setDrag({ taskId: t.id, x: e.clientX, y: e.clientY }); }} />
+                      onGrab={(e) => {
+                        e.preventDefault();
+                        holdThenDrag(e, () => setDrag({ taskId: t.id, x: e.clientX, y: e.clientY }));
+                      }} />
               ))}
             </Box>
 
@@ -185,7 +191,7 @@ export default function TodayScreen({ data }) {
 
       {/* 드래그 중인 카드 미리보기 */}
       {dragged && drag && (
-        <div className="pointer-events-none fixed z-30 w-[150px] -translate-x-1/2 -translate-y-1/2 rotate-2 rounded-xl bg-white px-2.5 py-2 shadow-2xl ring-2 ring-blue-400"
+        <div className="pointer-events-none fixed z-30 w-[150px] -translate-x-1/2 -translate-y-1/2 rotate-2 rounded-xl bg-white px-2.5 py-2 shadow-2xl ring-2 ring-blue-400 transition-[left,top] duration-100 ease-out"
              style={{ left: drag.x, top: drag.y }}>
           <p className="truncate text-[11.5px] font-semibold text-slate-800">{dragged.title}</p>
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { Header } from "../components/ui";
 import { TAGS } from "../lib/core";
+import { holdThenDrag } from "../lib/holdThenDrag";
 
 /**
  * 할 일의 원본 목록.
@@ -58,22 +59,15 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
 
   return (
     <>
-      <Header title="Tasks"
-              sub={`전체 ${visible.length}개 · 오늘 선정 ${selectedCount}개`}
-              right={
-                <button onClick={onCompose} aria-label="할 일 추가"
-                        className="rounded-xl bg-blue-500 p-2.5 text-white shadow-lg shadow-blue-500/30">
-                  <Pencil className="h-4 w-4" />
-                </button>
-              } />
+      <Header title="Tasks" sub={`전체 ${visible.length}개 · 오늘 선정 ${selectedCount}개`} />
 
       <p className="mb-3 text-[11px] text-slate-400">
-        손잡이를 끌어 우선순위를 바꾸고, 오른쪽 체크로 오늘 할 일을 고르세요.
+        손잡이를 지그시 눌러 우선순위를 바꾸고, 오른쪽 체크로 오늘 할 일을 고르세요.
       </p>
 
       {list.length === 0 && (
         <p className="py-16 text-center text-[12.5px] text-slate-400">
-          할 일이 없어요.<br />오른쪽 위 연필 버튼으로 추가해 보세요.
+          할 일이 없어요.<br />오른쪽 아래 버튼으로 추가해 보세요.
         </p>
       )}
 
@@ -82,9 +76,9 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
         const isFollowup = t.status === "followup";
         return (
           <div key={t.id} ref={(el) => (rowRefs.current[t.id] = el)}
-               className={`mb-1.5 flex items-center gap-2 rounded-xl bg-white py-2 pl-1 pr-2 shadow-sm ${
-                 dragId === t.id ? "opacity-40 ring-2 ring-blue-400" : ""}`}>
-            <button onPointerDown={(e) => { e.preventDefault(); setDragId(t.id); }}
+               className={`mb-1.5 flex items-center gap-2 rounded-xl bg-white py-2 pl-1 pr-2 shadow-sm transition-[opacity,transform] duration-150 ease-out ${
+                 dragId === t.id ? "scale-[1.02] opacity-50 ring-2 ring-blue-400" : ""}`}>
+            <button onPointerDown={(e) => { e.preventDefault(); holdThenDrag(e, () => setDragId(t.id)); }}
                     aria-label="순서 변경"
                     className="shrink-0 cursor-grab touch-none px-1 text-slate-300 active:cursor-grabbing">
               <GripVertical className="h-4 w-4" />
@@ -120,6 +114,11 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
           </div>
         );
       })}
+
+      <button onClick={onCompose} aria-label="할 일 추가"
+              className="fixed bottom-24 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl shadow-blue-500/40">
+        <Pencil className="h-5 w-5" />
+      </button>
     </>
   );
 }

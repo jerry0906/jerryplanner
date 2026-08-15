@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import {
   DAY_END, DAY_START, PX_PER_MIN, SNAP, TAGS, durLabel, fmt, minToY, yToMin,
 } from "../lib/core";
+import { holdThenDrag } from "../lib/holdThenDrag";
 
 /**
  * 하루 타임라인.
@@ -102,12 +103,15 @@ export default function DayTimeline({
             <div key={en.id}
                  onPointerDown={(e) => {
                    const top = trackRef.current.getBoundingClientRect().top;
-                   begin({ kind: "move", entryId: en.id, taskId: en.task_id,
-                           grabOffset: e.clientY - top - minToY(start), escaped: false });
+                   holdThenDrag(e, () => begin({
+                     kind: "move", entryId: en.id, taskId: en.task_id,
+                     grabOffset: e.clientY - top - minToY(start), escaped: false,
+                   }));
                  }}
-                 className={`absolute inset-x-0 cursor-grab touch-none overflow-hidden rounded-lg px-1.5 py-0.5 pr-6 text-[10px] font-bold leading-tight text-white active:cursor-grabbing ${
+                 className={`absolute inset-x-0 cursor-grab touch-none overflow-hidden rounded-lg px-1.5 py-0.5 pr-6 text-[10px] font-bold leading-tight text-white transition-[top] duration-100 ease-out active:cursor-grabbing ${
                    done ? "bg-emerald-600" : TAGS[task.type_tag]?.solid ?? "bg-slate-400"
-                 } ${dragging && drag.escaped ? "opacity-40 ring-2 ring-rose-400" : ""}`}
+                 } ${dragging ? "scale-[1.03] shadow-lg" : ""} ${
+                   dragging && drag.escaped ? "opacity-40 ring-2 ring-rose-400" : ""}`}
                  style={{ top: minToY(start), height: Math.max(16, dur * PX_PER_MIN) }}>
               <button onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => onToggleDone(en.task_id)}
