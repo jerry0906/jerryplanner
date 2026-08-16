@@ -87,7 +87,7 @@ function Shell({ userId, onSignOut }) {
         {data.loading && tab !== "settings" ? <Spinner label="불러오는 중…" /> : (
           <>
             {tab === "tasks" && <TasksScreen data={data} onCompose={() => setComposer(true)} onEdit={(t) => setComposer(t)} />}
-            {tab === "today" && <TodayScreen data={data} />}
+            {tab === "today" && <TodayScreen data={data} onEdit={(t) => setComposer(t)} />}
             {tab === "ltg" && <LTGScreen data={data} />}
             {tab === "stats" && <StatsScreen data={data} />}
           </>

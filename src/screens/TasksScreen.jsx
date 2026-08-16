@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, GripVertical, Pencil, Trash2 } from "lucide-react";
+import { Check, GripVertical, Pencil, Repeat, Trash2 } from "lucide-react";
 import { Header } from "../components/ui";
 import { TAGS } from "../lib/core";
 import { holdThenDrag } from "../lib/holdThenDrag";
@@ -14,7 +14,7 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
   const { tasks, ltgs, toggleSelected, reorderTasks, deleteTask } = data;
 
   const visible = tasks
-    .filter((t) => t.status !== "done" && t.repeat_rule === "none")
+    .filter((t) => t.status !== "done")
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
   const [order, setOrder] = useState(null);      // 드래그 중 임시 순서
@@ -74,6 +74,7 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
       {list.map((t) => {
         const ltg = t.ltg_id ? ltgs.find((g) => g.id === t.ltg_id) : null;
         const isFollowup = t.status === "followup";
+        const isRoutine = t.repeat_rule !== "none";
         return (
           <div key={t.id} ref={(el) => (rowRefs.current[t.id] = el)}
                className={`mb-1.5 flex items-center gap-2 rounded-xl bg-white py-2 pl-1 pr-2 shadow-sm transition-[opacity,transform] duration-150 ease-out ${
@@ -98,6 +99,12 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
               {isFollowup && (
                 <span className="text-[9.5px] font-bold text-violet-500">팔로우업</span>
               )}
+              {isRoutine && (
+                <span className="flex items-center gap-0.5 text-[9.5px] font-bold text-slate-400">
+                  <Repeat className="h-2.5 w-2.5" />
+                  {t.repeat_rule === "daily" ? "매일" : t.repeat_rule === "weekly" ? "매주" : "요일 지정"}
+                </span>
+              )}
             </div>
 
             <button onClick={() => deleteTask(t.id)} aria-label="삭제"
@@ -105,12 +112,18 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
               <Trash2 className="h-3.5 w-3.5" />
             </button>
 
-            <button onClick={() => toggleSelected(t.id)}
-                    aria-label="오늘 할 일로 선정"
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
-                      t.is_selected ? "border-blue-500 bg-blue-500" : "border-slate-200"}`}>
-              {t.is_selected && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
-            </button>
+            {isRoutine ? (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-300" title="루틴은 항상 Today에 표시돼요">
+                <Repeat className="h-3.5 w-3.5" />
+              </div>
+            ) : (
+              <button onClick={() => toggleSelected(t.id)}
+                      aria-label="오늘 할 일로 선정"
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                        t.is_selected ? "border-blue-500 bg-blue-500" : "border-slate-200"}`}>
+                {t.is_selected && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+              </button>
+            )}
           </div>
         );
       })}

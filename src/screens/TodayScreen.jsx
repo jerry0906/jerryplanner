@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Loader2, Repeat } from "lucide-react";
 import DayTimeline from "../components/DayTimeline";
 import { DEFAULT_DUR, TAGS, timeToMin, todayISO, yToMin } from "../lib/core";
 import { holdThenDrag } from "../lib/holdThenDrag";
+import { createEdgeAutoScroll } from "../lib/autoScroll";
 
 const shiftDate = (iso, days) => {
   const d = new Date(iso + "T00:00:00");
@@ -25,7 +26,7 @@ const repeatsOnDate = (task, iso) => {
   return false;
 };
 
-export default function TodayScreen({ data }) {
+export default function TodayScreen({ data, onEdit }) {
   const {
     tasks, entries, viewDate, setViewDate, loading,
     assign, updateEntry, unassign, toggleDone, moveToFollowup, backToTodo,
@@ -34,6 +35,8 @@ export default function TodayScreen({ data }) {
   const [drag, setDrag] = useState(null);   // 왼쪽 바 → 타임라인
   const [hoverBox, setHoverBox] = useState(null);
   const timelineApi = useRef(null);
+  const scrollerRef = useRef(null);
+  if (!scrollerRef.current) scrollerRef.current = createEdgeAutoScroll();
   const todoBoxRef = useRef(null);
   const followBoxRef = useRef(null);
 
@@ -66,8 +69,10 @@ export default function TodayScreen({ data }) {
     const move = (e) => {
       setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
       setHoverBox(inBox(followBoxRef, e.clientX, e.clientY) ? "follow" : null);
+      scrollerRef.current.update(e.clientY);
     };
     const up = (e) => {
+      scrollerRef.current.stop();
       // To-do 아이템을 타임라인 거치지 않고 바로 Follow-up으로
       if (inBox(followBoxRef, e.clientX, e.clientY)) {
         moveToFollowup(drag.taskId);
@@ -171,7 +176,8 @@ export default function TodayScreen({ data }) {
             <Box label="Routine" tone="slate" count={routineTasks.length}>
               {routineTasks.length === 0 && <Empty text="반복 일정 없음" />}
               {routineTasks.map((t) => (
-                <div key={t.id} className="mb-1 flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold text-slate-500">
+                <div key={t.id} onClick={() => onEdit(t)}
+                     className="mb-1 flex cursor-pointer items-center gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-[10.5px] font-semibold text-slate-500">
                   <Repeat className="h-2.5 w-2.5 shrink-0" />
                   <span className="truncate">{t.title}</span>
                 </div>

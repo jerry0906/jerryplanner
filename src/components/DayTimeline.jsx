@@ -4,6 +4,7 @@ import {
   DAY_END, DAY_START, PX_PER_MIN, SNAP, TAGS, durLabel, fmt, minToY, yToMin,
 } from "../lib/core";
 import { holdThenDrag } from "../lib/holdThenDrag";
+import { createEdgeAutoScroll } from "../lib/autoScroll";
 
 /**
  * 하루 타임라인.
@@ -17,6 +18,8 @@ export default function DayTimeline({
 }) {
   const trackRef = useRef(null);
   const dragRef = useRef(null);
+  const scrollerRef = useRef(null);
+  if (!scrollerRef.current) scrollerRef.current = createEdgeAutoScroll();
   const [, force] = useState(0);
   const height = minToY(DAY_END);
 
@@ -27,6 +30,7 @@ export default function DayTimeline({
       const d = dragRef.current;
       if (!d || !trackRef.current) return;
       e.preventDefault();
+      scrollerRef.current.update(e.clientY);
       const rect = trackRef.current.getBoundingClientRect();
       const y = e.clientY - rect.top;
       const outsideLeft = e.clientX < rect.left - 8;
@@ -43,6 +47,7 @@ export default function DayTimeline({
       }
     };
     const up = (e) => {
+      scrollerRef.current.stop();
       const d = dragRef.current;
       if (d?.kind === "move" && d.escaped) onBlockDragOut?.(d.entryId, e.clientX, e.clientY);
       dragRef.current = null;

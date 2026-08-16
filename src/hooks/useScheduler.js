@@ -101,7 +101,17 @@ export function useScheduler(userId) {
   /** Tasks 화면의 Today 체크 — 오늘 할 일로 선정/해제 */
   const toggleSelected = (taskId) => {
     const t = tasks.find((x) => x.id === taskId);
-    patchTask(taskId, { is_selected: !t?.is_selected });
+    const nowSelected = !t?.is_selected;
+    patchTask(taskId, { is_selected: nowSelected });
+
+    // 선정을 해제하면, 오늘 이미 타임라인에 배정해둔 게 있어도 함께 지운다.
+    if (!nowSelected) {
+      supabase.from("schedule_entries").delete().eq("task_id", taskId).eq("date", today)
+        .then(({ error }) => {
+          if (error) return setError(error.message);
+          day.reload(); // 지금 Today가 오늘을 보고 있다면 화면에서도 바로 사라진다
+        });
+    }
   };
 
   /** 드래그로 바뀐 우선순위 순서를 통째로 저장 */

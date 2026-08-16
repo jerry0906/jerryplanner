@@ -176,7 +176,7 @@ export function TaskComposer({ task, onClose, onSave, onDelete }) {
           </div>
         )}
 
-        {!isEdit && (
+        {!isEdit && repeat === "none" && (
           <label className="mb-5 flex cursor-pointer items-center gap-2.5">
             <span onClick={() => setSelected((v) => !v)}
                   className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors ${
