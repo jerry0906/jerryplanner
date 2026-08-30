@@ -31,7 +31,7 @@ function Shell({ userId, onSignOut }) {
   const data = useScheduler(userId);
   const settings = useSettings(userId);
   const [tab, setTab] = useState("tasks");
-  const [composer, setComposer] = useState(null); // null | true(신규) | task객체(수정)
+  const [composer, setComposer] = useState(null); // null | "new" | "new-today"(Today 플로팅, 오늘 선정 디폴트) | task객체(수정)
   const [celebrate, setCelebrate] = useState(false);
   const [overload, setOverload] = useState(false);
   const wasAllDone = useRef(false);
@@ -86,8 +86,8 @@ function Shell({ userId, onSignOut }) {
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-24 pt-3">
         {data.loading && tab !== "settings" ? <Spinner label="불러오는 중…" /> : (
           <>
-            {tab === "tasks" && <TasksScreen data={data} onCompose={() => setComposer(true)} onEdit={(t) => setComposer(t)} />}
-            {tab === "today" && <TodayScreen data={data} onEdit={(t) => setComposer(t)} />}
+            {tab === "tasks" && <TasksScreen data={data} onCompose={() => setComposer("new")} onEdit={(t) => setComposer(t)} />}
+            {tab === "today" && <TodayScreen data={data} onCompose={() => setComposer("new-today")} onEdit={(t) => setComposer(t)} />}
             {tab === "ltg" && <LTGScreen data={data} />}
             {tab === "stats" && <StatsScreen data={data} />}
           </>
@@ -111,6 +111,7 @@ function Shell({ userId, onSignOut }) {
 
       {composer && (
         <TaskComposer task={typeof composer === "object" ? composer : null}
+                      defaultSelected={composer === "new-today"}
                       onClose={() => setComposer(null)}
                       onSave={async (draft) => {
                         if (typeof composer === "object") data.updateTaskFromDraft(composer.id, draft);

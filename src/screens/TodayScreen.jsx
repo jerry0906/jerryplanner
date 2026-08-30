@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Repeat } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Repeat } from "lucide-react";
 import DayTimeline from "../components/DayTimeline";
 import { DEFAULT_DUR, TAGS, timeToMin, todayISO, yToMin } from "../lib/core";
 import { holdThenDrag } from "../lib/holdThenDrag";
@@ -26,7 +26,7 @@ const repeatsOnDate = (task, iso) => {
   return false;
 };
 
-export default function TodayScreen({ data, onEdit }) {
+export default function TodayScreen({ data, onCompose, onEdit }) {
   const {
     tasks, entries, viewDate, setViewDate, loading,
     assign, updateEntry, unassign, toggleDone, moveToFollowup, backToTodo,
@@ -202,6 +202,12 @@ export default function TodayScreen({ data, onEdit }) {
           <p className="truncate text-[11.5px] font-semibold text-slate-800">{dragged.title}</p>
         </div>
       )}
+
+      {/* 긴급히 타임라인에 추가해야 할 아젠다가 있을 때: 오늘 할 일로 선정된 상태로 바로 생성 */}
+      <button onClick={onCompose} aria-label="오늘 할 일 추가"
+              className="fixed bottom-24 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl shadow-blue-500/40">
+        <Pencil className="h-5 w-5" />
+      </button>
     </>
   );
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Loader2, Repeat, X } from "lucide-react";
 import { DAY_LABELS, REPEAT_OPTIONS, TAGS, TAG_KEYS } from "../lib/core";
-import { ai } from "../lib/supabase";
 
 export const Header = ({ title, sub, right }) => (
   <div className="flex items-start justify-between pb-3 pt-1">
@@ -96,29 +95,16 @@ export function Celebration({ show }) {
   );
 }
 
-/* 태스크 캡처 시트 — 제목 입력 후 AI가 태그/분류 제안 */
-export function TaskComposer({ task, onClose, onSave, onDelete }) {
+/* 태스크 캡처 시트 — 태그는 항상 수동 선택 */
+export function TaskComposer({ task, defaultSelected = false, onClose, onSave, onDelete }) {
   const isEdit = !!task;
   const [title, setTitle] = useState(task?.title ?? "");
   const [tag, setTag] = useState(task?.type_tag ?? "work");
-  const [selected, setSelected] = useState(task ? !!task.is_selected : false);
+  const [selected, setSelected] = useState(task ? !!task.is_selected : defaultSelected);
   const [repeat, setRepeat] = useState(task?.repeat_rule ?? "none");
   const [days, setDays] = useState(task?.days_of_week ?? []);
   const [start, setStart] = useState(task?.fixed_start_time?.slice(0, 5) ?? "09:00");
   const [end, setEnd] = useState(task?.fixed_end_time?.slice(0, 5) ?? "10:00");
-  const [classifying, setClassifying] = useState(false);
-  const [suggested, setSuggested] = useState(false);
-
-  const classify = async () => {
-    if (!title.trim() || suggested || isEdit) return;
-    setClassifying(true);
-    try {
-      const r = await ai.classify(title.trim());
-      if (r.type_tag) setTag(r.type_tag);
-      setSuggested(true);
-    } catch { /* 실패해도 수동 선택으로 계속 진행 */ }
-    setClassifying(false);
-  };
 
   const toMin = (s) => { const [h, m] = s.split(":"); return Number(h) * 60 + Number(m); };
 
@@ -128,13 +114,12 @@ export function TaskComposer({ task, onClose, onSave, onDelete }) {
         <h2 className="mb-4 text-[17px] font-extrabold text-slate-800">{isEdit ? "태스크 수정" : "새 태스크"}</h2>
 
         <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Title</label>
-        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onBlur={classify}
+        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)}
                placeholder="예: 제안서 검토"
                className="mb-4 w-full rounded-xl bg-slate-100 px-4 py-3 text-[14px] font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500" />
 
-        <label className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-slate-400">
-          Type Tag {classifying && <Loader2 className="h-3 w-3 animate-spin" />}
-          {suggested && !classifying && <span className="font-semibold normal-case text-blue-500">AI 제안 적용됨</span>}
+        <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400">
+          Type Tag
         </label>
         <div className="mb-4 flex flex-wrap gap-1.5">
           {TAG_KEYS.map((k) => (
