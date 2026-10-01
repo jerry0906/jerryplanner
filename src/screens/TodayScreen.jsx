@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Loader2, Pencil, Repeat } from "lucide-react
 import DayTimeline from "../components/DayTimeline";
 import { DEFAULT_DUR, TAGS, timeToMin, todayISO, yToMin } from "../lib/core";
 import { holdThenDrag } from "../lib/holdThenDrag";
+import { tap } from "../lib/doubleTap";
 import { createEdgeAutoScroll } from "../lib/autoScroll";
 
 const shiftDate = (iso, days) => {
@@ -136,6 +137,7 @@ export default function TodayScreen({ data, onCompose, onEdit }) {
       <p className="mb-3 rounded-xl bg-blue-50 px-3 py-2.5 text-[11px] leading-relaxed text-blue-700">
         오늘 할 일을 Drag해 수행할 시간을 배정하세요. 완료하면 체크해 완료처리하세요.
         위임했거나 팔로업이 필요한 아이템은 팔로업 박스로 옮기세요.
+        아이템을 두 번 탭하면 이름·태그를 바꿀 수 있어요.
       </p>
 
       {total > 0 && (
@@ -161,7 +163,8 @@ export default function TodayScreen({ data, onCompose, onEdit }) {
                       onGrab={(e) => {
                         e.preventDefault();
                         holdThenDrag(e, () => setDrag({ taskId: t.id, x: e.clientX, y: e.clientY }));
-                      }} />
+                      }}
+                      onClick={() => tap(t.id, { onDouble: () => onEdit(t) })} />
               ))}
             </Box>
 
@@ -169,7 +172,8 @@ export default function TodayScreen({ data, onCompose, onEdit }) {
                  active={hoverBox === "follow"}>
               {followItems.length === 0 && <Empty text="To-do나 타임라인에서 여기로 끌어놓으면 팔로우업" />}
               {followItems.map((t) => (
-                <Chip key={t.id} task={t} onClick={() => backToTodo(t.id)} />
+                <Chip key={t.id} task={t}
+                      onClick={() => tap(t.id, { onSingle: () => backToTodo(t.id), onDouble: () => onEdit(t) })} />
               ))}
             </Box>
 
@@ -190,7 +194,9 @@ export default function TodayScreen({ data, onCompose, onEdit }) {
             <DayTimeline entries={entries} tasks={tasks} routines={routines}
                          dragApi={timelineApi}
                          onUpdate={updateEntry} onToggleDone={toggleDone}
-                         onBlockDragOut={handleBlockDragOut} />
+                         onBlockDragOut={handleBlockDragOut}
+                         onEditTask={onEdit}
+                         showNow={viewDate === todayISO()} />
           </div>
         </div>
       )}

@@ -9,29 +9,36 @@ import { useDragOrder } from "../hooks/useDragOrder";
  *  - 세로로 끌어 우선순위 변경
  *  - 오른쪽 체크박스 = 오늘 할 일로 선정 (Today 화면 왼쪽 바에 나타남)
  *  - 완료 버튼은 없다. 완료 처리는 Today 타임라인에서만 한다.
- *  - 루틴(반복 항목)은 구분선 아래 별도 섹션에 모아서 보여준다.
+ *  - 일반 / 팔로우업 / 루틴 세 섹션으로 나눠 보여준다.
+ *    (루틴 = 반복 항목, 팔로우업 = status가 followup인 비반복 항목)
  */
 export default function TasksScreen({ data, onCompose, onEdit }) {
   const { tasks, ltgs, toggleSelected, reorderTasks, deleteTask } = data;
 
   const notDone = tasks.filter((t) => t.status !== "done");
 
+  const bySortOrder = (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0);
+
   const regularTasks = notDone
-    .filter((t) => t.repeat_rule === "none")
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    .filter((t) => t.repeat_rule === "none" && t.status !== "followup")
+    .sort(bySortOrder);
+
+  const followupTasks = notDone
+    .filter((t) => t.repeat_rule === "none" && t.status === "followup")
+    .sort(bySortOrder);
 
   const routineTasks = notDone
     .filter((t) => t.repeat_rule !== "none")
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    .sort(bySortOrder);
 
   const regular = useDragOrder(regularTasks, reorderTasks);
+  const followup = useDragOrder(followupTasks, reorderTasks);
   const routine = useDragOrder(routineTasks, reorderTasks);
 
   const selectedCount = notDone.filter((t) => t.is_selected).length;
 
   const renderRow = (t, group) => {
     const ltg = t.ltg_id ? ltgs.find((g) => g.id === t.ltg_id) : null;
-    const isFollowup = t.status === "followup";
     const isRoutine = t.repeat_rule !== "none";
     return (
       <div key={t.id} ref={(el) => (group.rowRefs.current[t.id] = el)}
@@ -54,9 +61,6 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
             {ltg && <span className="font-medium text-slate-400">{ltg.title} <span className="text-slate-300">›</span> </span>}
             {t.title}
           </p>
-          {isFollowup && (
-            <span className="text-[9.5px] font-bold text-violet-500">팔로우업</span>
-          )}
           {isRoutine && (
             <span className="flex items-center gap-0.5 text-[9.5px] font-bold text-slate-400">
               <Repeat className="h-2.5 w-2.5" />
@@ -70,9 +74,11 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
           <Trash2 className="h-3.5 w-3.5" />
         </button>
 
-        {isRoutine ? (
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-300" title="루틴은 항상 Today에 표시돼요">
-            <Repeat className="h-3.5 w-3.5" />
+        {isRoutine || group === followup ? (
+          // 루틴과 팔로우업은 선정하지 않아도 Today에 항상 표시된다
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center text-slate-300"
+               title={isRoutine ? "루틴은 항상 Today에 표시돼요" : "팔로우업은 항상 Today에 표시돼요"}>
+            {isRoutine && <Repeat className="h-3.5 w-3.5" />}
           </div>
         ) : (
           <button onClick={() => toggleSelected(t.id)}
@@ -94,20 +100,30 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
         손잡이를 지그시 눌러 우선순위를 바꾸고, 오른쪽 체크로 오늘 할 일을 고르세요.
       </p>
 
-      {regular.list.length === 0 && routine.list.length === 0 && (
+      {notDone.length === 0 && (
         <p className="py-16 text-center text-[12.5px] text-slate-400">
           할 일이 없어요.<br />오른쪽 아래 버튼으로 추가해 보세요.
         </p>
       )}
 
-      {regular.list.map((t) => renderRow(t, regular))}
+      {notDone.length > 0 && (
+        <>
+          <Section label="일반" count={regular.list.length} first />
+          {regular.list.length === 0 && <p className="py-2 text-center text-[11px] text-slate-300">일반 할 일 없음</p>}
+          {regular.list.map((t) => renderRow(t, regular))}
+        </>
+      )}
+
+      {followup.list.length > 0 && (
+        <>
+          <Section label="팔로우업" count={followup.list.length} tone="text-violet-500" />
+          {followup.list.map((t) => renderRow(t, followup))}
+        </>
+      )}
 
       {routine.list.length > 0 && (
         <>
-          <div className="mb-1.5 mt-4 flex items-center gap-2">
-            <span className="text-[10.5px] font-bold text-slate-400">루틴</span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
+          <Section label="루틴" count={routine.list.length} />
           {routine.list.map((t) => renderRow(t, routine))}
         </>
       )}
@@ -117,5 +133,15 @@ export default function TasksScreen({ data, onCompose, onEdit }) {
         <Pencil className="h-5 w-5" />
       </button>
     </>
+  );
+}
+
+function Section({ label, count, tone = "text-slate-400", first }) {
+  return (
+    <div className={`mb-1.5 flex items-center gap-2 ${first ? "" : "mt-4"}`}>
+      <span className={`text-[10.5px] font-bold ${tone}`}>{label}</span>
+      <span className="text-[10px] text-slate-300">{count}</span>
+      <div className="h-px flex-1 bg-slate-200" />
+    </div>
   );
 }

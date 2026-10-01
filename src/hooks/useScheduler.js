@@ -95,7 +95,15 @@ export function useScheduler(userId) {
       days_of_week: draft.days_of_week,
       fixed_start_time: minToTime(draft.fixed_start ?? null),
       fixed_end_time: minToTime(draft.fixed_end ?? null),
+      ...(draft.status && { status: draft.status }),
     });
+
+    // 팔로우업으로 바꾸면 타임라인 배정은 해제한다 (Follow-up 박스로 끌어놓은 것과 동일)
+    const prev = tasks.find((t) => t.id === taskId);
+    if (draft.status === "followup" && prev?.status !== "followup") {
+      const entry = day.entries.find((e) => e.task_id === taskId);
+      if (entry) day.unassign(entry.id);
+    }
   };
 
   /** Tasks 화면의 Today 체크 — 오늘 할 일로 선정/해제 */

@@ -105,6 +105,9 @@ export function TaskComposer({ task, defaultSelected = false, onClose, onSave, o
   const [days, setDays] = useState(task?.days_of_week ?? []);
   const [start, setStart] = useState(task?.fixed_start_time?.slice(0, 5) ?? "09:00");
   const [end, setEnd] = useState(task?.fixed_end_time?.slice(0, 5) ?? "10:00");
+  // 일반(todo) ↔ 팔로우업 전환은 수정 모드에서만, 완료된 항목은 제외
+  const canChangeStatus = isEdit && task.status !== "done";
+  const [status, setStatus] = useState(task?.status ?? "todo");
 
   const toMin = (s) => { const [h, m] = s.split(":"); return Number(h) * 60 + Number(m); };
 
@@ -129,6 +132,21 @@ export function TaskComposer({ task, defaultSelected = false, onClose, onSave, o
             </button>
           ))}
         </div>
+
+        {canChangeStatus && repeat === "none" && (
+          <>
+            <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400">구분</label>
+            <div className="mb-4 flex gap-1.5">
+              {[["todo", "일반"], ["followup", "팔로우업"]].map(([k, l]) => (
+                <button key={k} onClick={() => setStatus(k)}
+                        className={`rounded-lg px-3 py-1.5 text-[11px] font-bold ${
+                          status === k ? (k === "followup" ? "bg-violet-500 text-white" : "bg-blue-500 text-white") : "bg-slate-100 text-slate-500"}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Repeat</label>
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -178,6 +196,7 @@ export function TaskComposer({ task, defaultSelected = false, onClose, onSave, o
                   days_of_week: repeat === "custom_days" ? days : null,
                   fixed_start: repeat !== "none" ? toMin(start) : null,
                   fixed_end: repeat !== "none" ? toMin(end) : null,
+                  ...(canChangeStatus && { status: repeat === "none" ? status : "todo" }),
                 })}
                 className="w-full rounded-xl bg-blue-500 py-3.5 text-[13px] font-bold text-white disabled:opacity-40">
           {isEdit ? "저장" : "Save Task"}

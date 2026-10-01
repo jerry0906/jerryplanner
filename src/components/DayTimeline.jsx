@@ -4,6 +4,7 @@ import {
   DAY_END, DAY_START, PX_PER_MIN, SNAP, TAGS, durLabel, fmt, minToY, yToMin,
 } from "../lib/core";
 import { holdThenDrag } from "../lib/holdThenDrag";
+import { tap } from "../lib/doubleTap";
 import { createEdgeAutoScroll } from "../lib/autoScroll";
 
 /**
@@ -11,10 +12,12 @@ import { createEdgeAutoScroll } from "../lib/autoScroll";
  *  - 루틴은 entry 없이도 흐린 배경 블록으로 항상 표시된다.
  *  - 배정된 항목은 블록을 끌어 시간 이동, 가장자리로 길이 조정.
  *  - 블록을 왼쪽 바 밖으로 끌어내면 배정이 해제된다(드롭 판정은 부모가 함).
+ *  - 블록을 두 번 탭하면 태스크 수정 시트가 열린다.
+ *  - 오늘을 보고 있으면 현재 시각을 빨간 가로선으로 표시한다(1분마다 갱신).
  */
 export default function DayTimeline({
   entries, tasks, routines, dragApi,
-  onUpdate, onToggleDone, onBlockDragOut,
+  onUpdate, onToggleDone, onBlockDragOut, onEditTask, showNow,
 }) {
   const trackRef = useRef(null);
   const dragRef = useRef(null);
@@ -22,6 +25,15 @@ export default function DayTimeline({
   if (!scrollerRef.current) scrollerRef.current = createEdgeAutoScroll();
   const [, force] = useState(0);
   const height = minToY(DAY_END);
+
+  const nowMinute = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  const [now, setNow] = useState(nowMinute);
+  useEffect(() => {
+    if (!showNow) return;
+    setNow(nowMinute());
+    const id = setInterval(() => setNow(nowMinute()), 60 * 1000);
+    return () => clearInterval(id);
+  }, [showNow]);
 
   const begin = (payload) => { dragRef.current = payload; force((n) => n + 1); };
 
@@ -113,13 +125,14 @@ export default function DayTimeline({
                      grabOffset: e.clientY - top - minToY(start), escaped: false,
                    }));
                  }}
+                 onClick={() => tap(en.id, { onDouble: () => onEditTask?.(task) })}
                  className={`absolute inset-x-0 cursor-grab touch-none overflow-hidden rounded-lg px-1.5 py-0.5 pr-6 text-[10px] font-bold leading-tight text-white transition-[top] duration-100 ease-out active:cursor-grabbing ${
                    done ? "bg-emerald-600" : TAGS[task.type_tag]?.solid ?? "bg-slate-400"
                  } ${dragging ? "scale-[1.03] shadow-lg" : ""} ${
                    dragging && drag.escaped ? "opacity-40 ring-2 ring-rose-400" : ""}`}
                  style={{ top: minToY(start), height: Math.max(16, dur * PX_PER_MIN) }}>
               <button onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => onToggleDone(en.task_id)}
+                      onClick={(e) => { e.stopPropagation(); onToggleDone(en.task_id); }}
                       aria-label="완료"
                       className={`absolute right-1 top-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border-2 ${
                         done ? "border-white bg-white" : "border-white/70"}`}>
@@ -139,6 +152,15 @@ export default function DayTimeline({
             </div>
           );
         })}
+
+        {/* 현재 시각 */}
+        {showNow && now >= DAY_START && now <= DAY_END && (
+          <div className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+               style={{ top: minToY(now), transform: "translateY(-50%)" }}>
+            <div className="-ml-1 h-2 w-2 shrink-0 rounded-full bg-rose-500" />
+            <div className="h-[1.5px] flex-1 bg-rose-500" />
+          </div>
+        )}
       </div>
     </div>
   );
