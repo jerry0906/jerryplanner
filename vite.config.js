@@ -15,7 +15,7 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
       },
-      includeAssets: ["icon-192.png", "icon-512.png"],
+      includeAssets: ["icon-192.png", "icon-512.png", "favicon.svg", "favicon-32.png", "apple-touch-icon.png"],
       manifest: {
         name: "Jerry Planner",
         short_name: "JerryPlanner",

@@ -30,7 +30,7 @@ export default function App() {
 function Shell({ userId, onSignOut }) {
   const data = useScheduler(userId);
   const settings = useSettings(userId);
-  const [tab, setTab] = useState("tasks");
+  const [tab, setTab] = useState("today");
   const [composer, setComposer] = useState(null); // null | "new" | "new-today"(Today 플로팅, 오늘 선정 디폴트) | task객체(수정)
   const [celebrate, setCelebrate] = useState(false);
   const [overload, setOverload] = useState(false);
