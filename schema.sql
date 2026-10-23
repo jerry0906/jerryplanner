@@ -19,6 +19,9 @@ create table profiles (
   -- 저녁 계획 / 아침 브리핑 알림 시각. 이 값 그대로 시스템 루틴의 고정 시간이 된다.
   evening_plan_time   time not null default '21:00',
   morning_brief_time  time not null default '08:00',
+  -- ICS 구독 피드(Outlook 등 "인터넷 일정 구독"용). 토큰이 null이면 피드 꺼짐.
+  ics_token           text unique,
+  ics_tags            type_tag[] not null default '{work,admin,ltg}',
   created_at          timestamptz not null default now()
 );
 
@@ -114,23 +117,12 @@ create table schedule_entries (
   actual_start      int,
   actual_duration   int,
   is_skipped        boolean not null default false,
-  outlook_event_id  text,                 -- Outlook에 이미 push된 이벤트 id (있으면 update, 없으면 create)
   created_at        timestamptz not null default now(),
 
   unique (task_id, date),
   constraint valid_window check (start_minute between 0 and 1439 and duration_minutes > 0)
 );
 create index on schedule_entries (user_id, date);
-
--- ── outlook_connections (일방향 push용 토큰) ──────────────
-create table outlook_connections (
-  user_id        uuid primary key references auth.users on delete cascade,
-  refresh_token  text not null,
-  account_email  text,
-  push_tags      type_tag[] not null default '{work,admin,ltg}',
-  is_enabled     boolean not null default true,
-  updated_at     timestamptz not null default now()
-);
 
 -- ── push_subscriptions (Web Push, VAPID) ──────────────────
 --  브라우저 1개당 구독 1행. 기기를 여러 개 쓰면 여러 행이 생긴다.
@@ -161,7 +153,6 @@ alter table profiles             enable row level security;
 alter table ltgs                 enable row level security;
 alter table tasks                enable row level security;
 alter table schedule_entries     enable row level security;
-alter table outlook_connections  enable row level security;
 alter table push_subscriptions   enable row level security;
 alter table notification_log     enable row level security;
 
@@ -175,9 +166,6 @@ create policy "own tasks" on tasks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own entries" on schedule_entries
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-create policy "own outlook" on outlook_connections
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own push subs" on push_subscriptions
@@ -223,7 +211,6 @@ group by e.user_id, week_of, t.type_tag;
 -- alter table tasks add column if not exists system_kind text check (system_kind in ('evening_plan','morning_brief'));
 -- alter table tasks drop column if exists duration_minutes;  -- 아무도 안 읽는 죽은 값이었음. schedule_entries.duration_minutes가 유일한 소스.
 -- create unique index if not exists tasks_one_system_kind_per_user on tasks (user_id, system_kind) where system_kind is not null;
--- alter table schedule_entries add column if not exists outlook_event_id text;
 -- (push_subscriptions, notification_log 테이블은 위 CREATE TABLE 문을 그대로 한 번 더 실행하면 됩니다)
 
 -- ============================================================

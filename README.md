@@ -18,7 +18,7 @@ Android 홈 화면에 설치해 앱처럼 쓸 수 있습니다.
 
 ## 2. Edge Functions 배포
 
-API 키, MS 클라이언트 시크릿, VAPID 개인키는 전부 **서버(Edge Function)에만** 두고, 앱 번들에는 절대 넣지 않습니다.
+API 키, VAPID 개인키는 전부 **서버(Edge Function)에만** 두고, 앱 번들에는 절대 넣지 않습니다.
 
 ```bash
 npm i -g supabase
@@ -28,12 +28,6 @@ supabase link --project-ref <your-project-ref>
 # ── Claude API ──────────────────────────────────
 supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 
-# ── Outlook 연동 (Microsoft Entra ID 앱 등록 필요, 아래 3번 참고) ──
-supabase secrets set MS_CLIENT_ID=... 
-supabase secrets set MS_CLIENT_SECRET=...
-supabase secrets set MS_REDIRECT_URI=https://<project-ref>.supabase.co/functions/v1/outlook-auth-callback
-supabase secrets set APP_URL=https://your-app-domain.com
-
 # ── Web Push 알림 (VAPID 키, 아래 4번 참고) ──
 npx web-push generate-vapid-keys   # public/private 키 한 쌍이 출력됨
 supabase secrets set VAPID_PUBLIC_KEY=...
@@ -42,9 +36,7 @@ supabase secrets set VAPID_SUBJECT=mailto:you@example.com
 
 # ── 배포 ──
 supabase functions deploy ai
-supabase functions deploy outlook-auth-start
-supabase functions deploy outlook-auth-callback
-supabase functions deploy outlook-push
+supabase functions deploy ics --no-verify-jwt   # 캘린더 앱이 로그인 없이 읽어야 해서 JWT 검증을 끈다
 supabase functions deploy send-push
 supabase functions deploy notify-cron
 ```
@@ -58,13 +50,16 @@ curl -X POST "https://<project-ref>.supabase.co/functions/v1/ai" \
   -d '{"action":"classify_task","payload":{"title":"세금 신고 서류 정리"}}'
 ```
 
-## 3. Outlook(Microsoft Entra ID) 앱 등록
+## 3. 캘린더 구독 (ICS)
 
-1. [Azure Portal](https://portal.azure.com) → **Entra ID → App registrations → New registration**
-2. 계정 유형: 회사 계정만 쓸 거면 "Single tenant", 개인 Outlook.com도 포함하려면 "Personal Microsoft accounts included" 선택
-3. **Redirect URI**: Web / `https://<project-ref>.supabase.co/functions/v1/outlook-auth-callback`
-4. **Certificates & secrets**에서 새 client secret 생성 → 위 `MS_CLIENT_SECRET`에 사용
-5. **API permissions**에서 `Calendars.ReadWrite`, `offline_access` 추가
+Outlook·Google·Apple 캘린더에서 "인터넷 일정 구독"으로 Jerry Planner 일정을 볼 수 있습니다.
+
+1. 앱의 ⚙️ 설정 → **캘린더 구독 (ICS)** → "구독 주소 만들기" → 주소 복사
+2. Outlook → 캘린더 추가 → **웹에서 구독** → 주소 붙여넣기
+
+- 배정된 일정(오늘 기준 -30일 ~ +90일)과 루틴(반복 일정)을 내보냅니다. 내보낼 태그는 설정에서 고릅니다.
+- 읽기 전용·단방향이고, 캘린더 앱이 주기적으로 다시 읽어 가므로 반영까지 몇 시간 걸릴 수 있습니다.
+- 주소에 든 토큰(`profiles.ics_token`)이 곧 열람 권한입니다. 유출되면 "주소 새로 만들기"로 교체하세요.
 
 ## 4. Web Push (VAPID)
 
@@ -106,7 +101,6 @@ npm run build
 
 `dist/` 폴더를 [Vercel](https://vercel.com)이나 [Netlify](https://netlify.com)에 올리면 됩니다 (둘 다 무료).
 빌드 명령은 `npm run build`, 출력 디렉터리는 `dist`, 환경변수는 `.env`와 동일하게 설정하세요.
-**이 도메인 주소를 `MS_REDIRECT_URI`/`APP_URL` secrets와 Entra ID Redirect URI에도 반영**해야 Outlook 연동이 작동합니다.
 
 배포된 주소를 **Android Chrome으로 열고 → 메뉴 → 홈 화면에 추가**하면 주소창 없이 앱처럼 실행됩니다.
 
@@ -119,11 +113,11 @@ npm run build
 ```
 src/
   lib/core.js           시간축 상수·계산, 태그/카테고리 정의
-  lib/supabase.js       Supabase 클라이언트, Edge Function 호출 래퍼(ai/outlook/push)
+  lib/supabase.js       Supabase 클라이언트, Edge Function 호출 래퍼(ai/push), ICS 피드 주소
   hooks/useAuth.js      세션 구독(useSession) + 인증 액션(auth)
   hooks/useDayPlan.js   날짜 하나의 schedule_entries CRUD (Today/Allocator가 공유)
   hooks/useScheduler.js "오늘" 화면들이 쓰는 데이터 레이어 (tasks/ltgs + useDayPlan)
-  hooks/useSettings.js  프로필, Outlook 연동, 푸시 구독 상태
+  hooks/useSettings.js  프로필, ICS 구독 피드, 푸시 구독 상태
   components/Timeline.jsx  타임라인 (Plan/Actual 두 모드)
   components/ui.jsx        헤더·태스크카드·축하효과·과부하 넛지·캡처시트
   screens/                 화면 7개 (Today/Allocator/Tasks/LTG/Stats/Auth/Settings)
@@ -132,9 +126,7 @@ src/
 
 supabase/functions/
   ai/                    LTG Breakdown(Sonnet), 태스크 자동분류(Haiku)
-  outlook-auth-start/    Microsoft 로그인 페이지로 리다이렉트
-  outlook-auth-callback/ code → refresh_token 교환 후 저장
-  outlook-push/          지정 날짜의 일정을 Outlook 캘린더로 push (일방향)
+  ics/                   캘린더 구독용 ICS 피드 (토큰 URL, JWT 검증 없음)
   send-push/             테스트용 단발 푸시 발송
   notify-cron/           5분마다 실행, 저녁계획/아침브리핑 시각이 된 유저에게 발송
   _shared.ts, _push.ts   공용 유틸
@@ -152,8 +144,8 @@ supabase/functions/
   한 번 팝업으로 "무리한 계획은 아닌지" 물어봅니다.
 - **저녁 계획 / 아침 브리핑은 시스템 루틴**: 가입 시 `tasks.system_kind`로 표시된 두 루틴이 자동 생성됩니다.
   설정에서 시간을 바꾸면 이 루틴의 고정 시간도 같이 이동하고, `notify-cron`이 그 시간에 맞춰 푸시를 보냅니다.
-- **Outlook은 일방향**: Allocator에서 "저장 & Outlook으로 전송"을 눌러야 반영됩니다(자동 동기화 아님).
-  같은 entry를 다시 push하면 `outlook_event_id`로 새로 만들지 않고 갱신합니다.
+- **캘린더 연동은 ICS 구독(단방향)**: 일정마다 UID를 고정(`entry-<id>`, `routine-<task id>`)해서
+  캘린더가 피드를 다시 읽어도 중복되지 않고 갱신됩니다.
 - **Allocator는 오늘/내일을 전환** 가능합니다. 저녁 계획은 보통 "내일"을 짜는 것이므로 기본값이 내일입니다.
 
 ---

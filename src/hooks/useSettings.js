@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase, outlook } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
@@ -33,7 +33,6 @@ async function getPushSubscription() {
 
 export function useSettings(userId) {
   const [profile, setProfile] = useState(null);
-  const [conn, setConn] = useState(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,10 +42,7 @@ export function useSettings(userId) {
     setLoading(true);
     setError(null);
     try {
-      const [p, c] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-        supabase.from("outlook_connections").select("*").eq("user_id", userId).maybeSingle(),
-      ]);
+      const p = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
 
       // 트리거가 생기기 전에 가입한 계정은 profiles 행이 없다. 그 자리에서 만들어 준다.
       let prof = p.data;
@@ -58,7 +54,6 @@ export function useSettings(userId) {
       }
 
       setProfile(prof);
-      setConn(c.data ?? null);
       setPushEnabled(!!(await getPushSubscription()));
     } catch (err) {
       setError(err.message ?? String(err));
@@ -91,25 +86,25 @@ export function useSettings(userId) {
       .eq("user_id", userId).eq("system_kind", "morning_brief");
   };
 
-  /* ── Outlook ───────────────────────────────── */
-  const connectOutlook = async () => {
-    await outlook.connect(userId);
-    await load();
+  /* ── ICS 구독 피드 ─────────────────────────── */
+  /** 새 토큰을 만든다. 이미 있으면 교체되어 예전 구독 주소는 더 이상 동작하지 않는다. */
+  const createIcsToken = async () => {
+    const bytes = crypto.getRandomValues(new Uint8Array(24));
+    const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const { error: err } = await supabase.from("profiles").update({ ics_token: token }).eq("id", userId);
+    if (err) throw err;
+    setProfile((p) => (p ? { ...p, ics_token: token } : p));
   };
 
-  const disconnectOutlook = async () => {
-    setConn(null);
-    await supabase.from("outlook_connections").delete().eq("user_id", userId);
+  const disableIcs = async () => {
+    const { error: err } = await supabase.from("profiles").update({ ics_token: null }).eq("id", userId);
+    if (err) throw err;
+    setProfile((p) => (p ? { ...p, ics_token: null } : p));
   };
 
-  const toggleOutlookEnabled = async (enabled) => {
-    setConn((p) => (p ? { ...p, is_enabled: enabled } : p));
-    await supabase.from("outlook_connections").update({ is_enabled: enabled }).eq("user_id", userId);
-  };
-
-  const updatePushTags = async (tags) => {
-    setConn((p) => (p ? { ...p, push_tags: tags } : p));
-    await supabase.from("outlook_connections").update({ push_tags: tags }).eq("user_id", userId);
+  const updateIcsTags = async (tags) => {
+    setProfile((p) => (p ? { ...p, ics_tags: tags } : p));
+    await supabase.from("profiles").update({ ics_tags: tags }).eq("id", userId);
   };
 
   /* ── Web Push 구독 ─────────────────────────── */
@@ -148,9 +143,9 @@ export function useSettings(userId) {
   };
 
   return {
-    profile, conn, pushEnabled, loading, error,
+    profile, pushEnabled, loading, error,
     updateMaxDailyTasks, updateTimes,
-    connectOutlook, disconnectOutlook, toggleOutlookEnabled, updatePushTags,
+    createIcsToken, disableIcs, updateIcsTags,
     enablePush, disablePush,
   };
 }

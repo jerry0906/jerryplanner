@@ -36,7 +36,7 @@ export function useDayPlan(userId, date, tasks) {
     const optimistic = {
       id: `tmp-${taskId}`, user_id: userId, task_id: taskId, date,
       start_minute: startMinute, duration_minutes: durationMinutes,
-      actual_start: null, actual_duration: null, is_skipped: false, outlook_event_id: null,
+      actual_start: null, actual_duration: null, is_skipped: false,
     };
     setEntries((p) => [...p, optimistic]);
 

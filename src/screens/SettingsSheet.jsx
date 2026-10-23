@@ -1,16 +1,23 @@
 import { useState } from "react";
 import {
-  Bell, BellOff, ChevronLeft, Link2, Loader2, LogOut, Minus, Plus, Unlink,
+  Bell, BellOff, CalendarPlus, Check, ChevronLeft, Copy, Loader2, LogOut, Minus, Plus, RefreshCw, Unlink,
 } from "lucide-react";
 import { SectionTitle } from "../components/ui";
 import { TAG_KEYS, TAGS } from "../lib/core";
 import { useSettings } from "../hooks/useSettings";
-import { push } from "../lib/supabase";
+import { icsFeedUrl, push } from "../lib/supabase";
 
 export default function SettingsSheet({ userId, onClose, onSignOut }) {
   const s = useSettings(userId);
   const [busy, setBusy] = useState(null); // 어떤 액션이 진행 중인지
   const [msg, setMsg] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyIcs = async () => {
+    await navigator.clipboard.writeText(icsFeedUrl(s.profile.ics_token));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const run = async (key, fn) => {
     setBusy(key); setMsg(null);
@@ -107,28 +114,35 @@ export default function SettingsSheet({ userId, onClose, onSignOut }) {
             </div>
           </div>
 
-          {/* Outlook 연동 */}
-          <SectionTitle>업무용 Outlook 연동</SectionTitle>
+          {/* ICS 구독 피드 — Outlook 등에서 "인터넷 일정 구독"으로 추가 */}
+          <SectionTitle>캘린더 구독 (ICS)</SectionTitle>
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            {s.conn ? (
+            {s.profile.ics_token ? (
               <>
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-[13.5px] font-bold text-slate-800">{s.conn.account_email ?? "연결됨"}</p>
-                    <p className="text-[11px] text-slate-400">Allocator → Outlook 일방향 전송</p>
-                  </div>
-                  <Switch checked={s.conn.is_enabled} onChange={(v) => s.toggleOutlookEnabled(v)} />
+                <p className="mb-2 text-[12px] text-slate-400">
+                  Outlook → 캘린더 추가 → 웹에서 구독에 아래 주소를 붙여넣으세요.
+                  읽기 전용이고, 반영까지 몇 시간 걸릴 수 있어요.
+                </p>
+                <div className="mb-3 flex items-center gap-2 rounded-xl bg-slate-100 py-1.5 pl-3 pr-1.5">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-slate-500">
+                    {icsFeedUrl(s.profile.ics_token)}
+                  </span>
+                  <button onClick={() => run("copy", copyIcs)}
+                          className="flex shrink-0 items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-bold text-blue-500 shadow-sm">
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? "복사됨" : "복사"}
+                  </button>
                 </div>
 
-                <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-slate-400">Push할 태그</p>
+                <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-wide text-slate-400">내보낼 태그</p>
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {TAG_KEYS.map((k) => {
-                    const on = s.conn.push_tags?.includes(k);
+                    const on = s.profile.ics_tags?.includes(k);
                     return (
                       <button key={k}
-                              onClick={() => s.updatePushTags(on
-                                ? s.conn.push_tags.filter((x) => x !== k)
-                                : [...(s.conn.push_tags ?? []), k])}
+                              onClick={() => s.updateIcsTags(on
+                                ? s.profile.ics_tags.filter((x) => x !== k)
+                                : [...(s.profile.ics_tags ?? []), k])}
                               className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${TAGS[k].chip} ${on ? "ring-2 ring-slate-800" : "opacity-40"}`}>
                         {TAGS[k].label}
                       </button>
@@ -136,21 +150,30 @@ export default function SettingsSheet({ userId, onClose, onSignOut }) {
                   })}
                 </div>
 
-                <button onClick={() => run("disconnect", s.disconnectOutlook)} disabled={busy === "disconnect"}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-2.5 text-[11.5px] font-bold text-slate-500">
-                  <Unlink className="h-3.5 w-3.5" /> 연결 해제
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => run("ics", s.createIcsToken)} disabled={busy === "ics"}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-2.5 text-[11.5px] font-bold text-slate-500">
+                    <RefreshCw className="h-3.5 w-3.5" /> 주소 새로 만들기
+                  </button>
+                  <button onClick={() => run("ics", s.disableIcs)} disabled={busy === "ics"}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-100 py-2.5 text-[11.5px] font-bold text-slate-500">
+                    <Unlink className="h-3.5 w-3.5" /> 구독 끄기
+                  </button>
+                </div>
+                <p className="mt-2 text-[10.5px] text-slate-300">
+                  주소를 아는 사람은 누구나 일정을 볼 수 있어요. 유출됐다면 새로 만들면 예전 주소는 끊겨요.
+                </p>
               </>
             ) : (
               <>
                 <p className="mb-3 text-[12px] text-slate-400">
-                  연결하면 Allocator에서 "저장 & Outlook으로 전송"을 눌렀을 때 일정이 업무용 캘린더에 반영돼요.
-                  (Outlook → 앱 방향으로는 가져오지 않아요)
+                  구독 주소를 만들면 Outlook·Google·Apple 캘린더에서 배정된 일정과 루틴을 볼 수 있어요.
+                  (캘린더 → 앱 방향으로는 가져오지 않아요)
                 </p>
-                <button onClick={() => run("connect", s.connectOutlook)} disabled={busy === "connect"}
+                <button onClick={() => run("ics", s.createIcsToken)} disabled={busy === "ics"}
                         className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 py-3 text-[12.5px] font-bold text-white">
-                  {busy === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                  Outlook 계정 연결
+                  {busy === "ics" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+                  구독 주소 만들기
                 </button>
               </>
             )}
@@ -176,14 +199,5 @@ function TimeRow({ label, value, onChange }) {
       <input type="time" value={value ?? ""} onChange={(e) => onChange(e.target.value)}
              className="rounded-lg bg-slate-100 px-3 py-2 text-[13px] font-semibold" />
     </div>
-  );
-}
-
-function Switch({ checked, onChange }) {
-  return (
-    <button onClick={() => onChange(!checked)} aria-label="토글"
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-blue-500" : "bg-slate-200"}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-[22px]" : "translate-x-0.5"}`} />
-    </button>
   );
 }
